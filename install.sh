@@ -95,44 +95,69 @@ show_progress 1
 echo -e "${GREEN}✓ Project created${NC}\n"
 
 echo -e "${CYAN}[4/8]${NC} ${BLUE}Installing NPM packages...${NC}"
-if [ ! -f "package.json" ]; then
-    npm init -y > /dev/null 2>&1
-fi
 
-PACKAGES=(
-    "@cosmjs/amino"
-    "@cosmjs/proto-signing"
-    "@cosmjs/stargate"
-    "@cosmjs/cosmwasm-stargate"
-    "bip39"
-    "bip32"
-    "readline-sync"
-    "chalk@4.1.2"
-    "cli-table3"
-    "qrcode-terminal"
-    "axios"
-    "dotenv"
-    "figlet"
-    "ora"
-    "inquirer"
-)
+# Always create fresh package.json
+npm init -y > /dev/null 2>&1
 
-TO_INSTALL=""
-for pkg in "${PACKAGES[@]}"; do
-    PKG_NAME=$(echo $pkg | cut -d'@' -f1)
-    if ! npm list $PKG_NAME >/dev/null 2>&1; then
-        TO_INSTALL="$TO_INSTALL $pkg"
+# Install all packages at once (more reliable)
+echo -e "${YELLOW}Installing @cosmjs packages...${NC}"
+npm install --save \
+    @cosmjs/amino@0.32.4 \
+    @cosmjs/proto-signing@0.32.4 \
+    @cosmjs/stargate@0.32.4 \
+    @cosmjs/cosmwasm-stargate@0.32.4 \
+    > /dev/null 2>&1
+
+echo -e "${YELLOW}Installing utility packages...${NC}"
+npm install --save \
+    bip39@3.1.0 \
+    bip32@4.0.0 \
+    readline-sync@1.4.10 \
+    chalk@4.1.2 \
+    cli-table3@0.6.5 \
+    qrcode-terminal@0.12.0 \
+    axios@1.7.2 \
+    dotenv@16.4.5 \
+    figlet@1.7.0 \
+    > /dev/null 2>&1
+
+show_progress 4
+
+# Verify critical packages
+echo -e "${YELLOW}Verifying installation...${NC}"
+CRITICAL_PACKAGES=("@cosmjs/proto-signing" "@cosmjs/stargate" "chalk" "bip39")
+ALL_OK=true
+
+for pkg in "${CRITICAL_PACKAGES[@]}"; do
+    if npm list "$pkg" >/dev/null 2>&1; then
+        echo -e "${GREEN}  ✓ $pkg${NC}"
+    else
+        echo -e "${RED}  ✗ $pkg - FAILED${NC}"
+        ALL_OK=false
     fi
 done
 
-if [ -n "$TO_INSTALL" ]; then
-    npm install --save $TO_INSTALL > /dev/null 2>&1
-    show_progress 4
-else
-    echo -e "${GREEN}✓ All packages already installed${NC}"
-    show_progress 1
+if [ "$ALL_OK" = false ]; then
+    echo -e "\n${RED}⚠️  Some packages failed to install!${NC}"
+    echo -e "${YELLOW}Retrying with force install...${NC}\n"
+    
+    npm install --force --save \
+        @cosmjs/amino@0.32.4 \
+        @cosmjs/proto-signing@0.32.4 \
+        @cosmjs/stargate@0.32.4 \
+        @cosmjs/cosmwasm-stargate@0.32.4 \
+        bip39@3.1.0 \
+        bip32@4.0.0 \
+        readline-sync@1.4.10 \
+        chalk@4.1.2 \
+        cli-table3@0.6.5 \
+        qrcode-terminal@0.12.0 \
+        axios@1.7.2 \
+        dotenv@16.4.5 \
+        figlet@1.7.0
 fi
-echo -e "${GREEN}✓ NPM packages ready${NC}\n"
+
+echo -e "${GREEN}✓ All NPM packages installed${NC}\n"
 
 echo -e "${CYAN}[5/8]${NC} ${BLUE}Creating DApp (fixed version)...${NC}"
 
