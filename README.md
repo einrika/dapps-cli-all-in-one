@@ -92,10 +92,9 @@ chmod +x install.sh
 bash install.sh
 ```
 
-### Updated script 
-
+## Update dapps script
 ```bash
-check didalam saat run sudah selesai
+paxi-update
 ```
 
 ---
