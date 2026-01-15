@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # ================================================================
-# PAXI DAPP V2.0 - COMPLETE INSTALLER
+# PAXI DAPP V2.0.1 - COMPLETE INSTALLER
 # Full Featured Production Ready
 # ================================================================
 
 set -e
 
-VERSION="2.0.0"
+VERSION="2.0.1"
 
 cat << "EOF"
 ╔════════════════════════════════════════════════════════════╗
@@ -17,7 +17,7 @@ cat << "EOF"
 ║        ██╔═══╝ ██╔══██║ ██╔██╗ ██║    ██║  ██║██╔══██║   ║
 ║        ██║     ██║  ██║██╔╝ ██╗██║    ██████╔╝██║  ██║   ║
 ║        ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═════╝ ╚═╝  ╚═╝   ║
-║              COMPLETE INSTALLER V2.0                       ║
+║              COMPLETE INSTALLER V2.0.1                   ║
 ╚════════════════════════════════════════════════════════════╝
 EOF
 
@@ -89,7 +89,7 @@ echo -e "${CYAN}[4/7]${NC} ${BLUE}Installing NPM packages...${NC}"
 cat > package.json << 'PKGJSON'
 {
   "name": "paxi-dapp",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Paxi DApp - Complete Production Wallet",
   "main": "dapp.js",
   "scripts": {
