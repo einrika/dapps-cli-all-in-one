@@ -3,6 +3,8 @@
 Wallet CLI untuk jaringan PAXI (Cosmos-based).  
 Fokus pada fungsi inti wallet dan pengembangan PRC-20 token.
 
+![image](https://s6.imgcdn.dev/Y1h2sh.jpg)
+
 ---
 
 ## Fitur
