@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # ================================================================
-# PAXI DAPP V2.0.2 - COMPLETE INSTALLER
+# PAXI DAPP V2.2.0 - COMPLETE INSTALLER
 # Full Featured Production Ready
 # ================================================================
 
 set -e
 
-VERSION="2.0.2"
+VERSION="2.2.0"
 
 echo "🚀 Starting installation..."
 echo ""
@@ -24,15 +24,14 @@ WHITE='\033[1;37m'
 # ================= HEADER =================
 show_header() {
 cat << "EOF"
-╔════════════════════════════════════════════════════════════╗
-║        ██████╗  █████╗ ██╗  ██╗██╗    ██████╗  █████╗    ║
-║        ██╔══██╗██╔══██╗╚██╗██╔╝██║    ██╔══██╗██╔══██╗   ║
-║        ██████╔╝███████║ ╚███╔╝ ██║    ██║  ██║███████║   ║
-║        ██╔═══╝ ██╔══██║ ██╔██╗ ██║    ██║  ██║██╔══██║   ║
-║        ██║     ██║  ██║██╔╝ ██╗██║    ██████╔╝██║  ██║   ║
-║        ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═════╝ ╚═╝  ╚═╝   ║
-║              COMPLETE INSTALLER V2.0.2                   ║
-╚════════════════════════════════════════════════════════════╝
+==================================================
+ PAXIHUB CREATE TOKEN PRC20
+--------------------------------------------------
+ Version : 2.2.0
+ Network : Paxi Mainnet (L1)
+ Type    : PRC-20 Token Creator
+ Author  : rika
+==================================================
 EOF
 }
 # panggil SEKALI di awal installer
@@ -96,7 +95,7 @@ echo -e "${CYAN}[4/7]${NC} ${BLUE}Installing NPM packages...${NC}"
 cat > package.json << 'PKGJSON'
 {
   "name": "paxi-dapp",
-  "version": "2.0.2",
+  "version": "2.2.0",
   "description": "Paxi DApp - Complete Production Wallet",
   "main": "dapp.js",
   "scripts": {
@@ -163,40 +162,34 @@ let address = null;
 let mnemonic = null;
 
 function toHuman(micro, decimals = CONFIG.DECIMALS) {
-    return (parseInt(micro) / Math.pow(10, decimals)).toFixed(decimals);
+    const value = BigInt(micro);
+    const base = BigInt(10) ** BigInt(decimals);
+
+    const integerPart = value / base;
+    const fractionPart = value % base;
+
+    const fractionStr = fractionPart
+        .toString()
+        .padStart(decimals, "0")
+        .replace(/0+$/, "");
+
+    return fractionStr.length > 0
+        ? `${integerPart.toString()}.${fractionStr}`
+        : integerPart.toString();
 }
 
 function toMicro(human, decimals = CONFIG.DECIMALS) {
-    return Math.floor(parseFloat(human) * Math.pow(10, decimals)).toString();
-}
+    const [intPart, fracPart = ""] = human.toString().split(".");
+    const frac = fracPart.padEnd(decimals, "0").slice(0, decimals);
 
-async function showBanner() {
-    console.clear();
-    console.log(chalk.cyan(figlet.textSync('PAXI DAPP', {
-        font: 'Standard',
-        horizontalLayout: 'default'
-    })));
-    console.log(chalk.gray('═'.repeat(70)));
-    console.log(chalk.yellow('  Production Wallet + PRC-20 Token Management'));
-    console.log(chalk.gray('═'.repeat(70)));
-    
-    if (wallet) {
-        console.log(chalk.green(`\n✓ ${address.substring(0, 15)}...${address.slice(-10)}`));
-        
-        // Auto display balance
-        try {
-            const balance = await client.getBalance(address, CONFIG.DENOM);
-            const paxi = toHuman(balance.amount);
-            console.log(chalk.white(`💰 Balance: ${paxi} PAXI`));
-        } catch (e) {
-            console.log(chalk.gray('💰 Balance: Loading...'));
-        }
-    }
-    console.log('');
+    return (
+        BigInt(intPart) * (BigInt(10) ** BigInt(decimals)) +
+        BigInt(frac)
+    ).toString();
 }
 
 async function mainMenu() {
-    await showBanner();
+    
     
     const options = [
         '',
@@ -271,7 +264,7 @@ async function mainMenu() {
 // ========== WALLET ==========
 
 async function generateWallet() {
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  🔑 GENERATE NEW WALLET'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -312,7 +305,7 @@ async function generateWallet() {
 }
 
 async function importWallet() {
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  📥 IMPORT WALLET'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -356,7 +349,7 @@ async function loadWallet(mnemonicPhrase) {
 async function sendPaxi() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  📤 SEND PAXI'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -413,7 +406,7 @@ async function sendPaxi() {
 async function viewHistory() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  📜 TRANSACTION HISTORY'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -481,7 +474,7 @@ function showAddressQR() {
 async function createPRC20() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  🪙 CREATE PRC-20 TOKEN'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -534,7 +527,7 @@ async function createPRC20() {
 async function transferPRC20() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  📤 TRANSFER PRC-20'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -580,7 +573,6 @@ async function transferPRC20() {
 async function checkPRC20Balance() {
     if (!checkWallet()) return;
     
-    await showBanner();
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  💵 CHECK PRC-20 BALANCE'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -611,7 +603,6 @@ async function checkPRC20Balance() {
 async function burnPRC20() {
     if (!checkWallet()) return;
     
-    await showBanner();
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  🔥 BURN PRC-20'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -652,7 +643,7 @@ async function burnPRC20() {
 async function mintPRC20() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  ➕ MINT PRC-20'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -691,7 +682,7 @@ async function mintPRC20() {
 async function tokenInfo() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  📊 TOKEN INFO'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -721,7 +712,7 @@ async function tokenInfo() {
 async function increaseAllowance() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  ➕ INCREASE ALLOWANCE'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -760,7 +751,7 @@ async function increaseAllowance() {
 async function decreaseAllowance() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  ➖ DECREASE ALLOWANCE'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -799,7 +790,7 @@ async function decreaseAllowance() {
 async function checkAllowance() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  🔍 CHECK ALLOWANCE'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -828,7 +819,7 @@ async function checkAllowance() {
 async function transferMinter() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  👑 TRANSFER MINTER'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -861,7 +852,7 @@ async function transferMinter() {
 async function transferMarketing() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  📢 TRANSFER MARKETING'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -894,7 +885,7 @@ async function transferMarketing() {
 async function renounceMinting() {
     if (!checkWallet()) return;
     
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  🚫 RENOUNCE MINTING'));
     console.log(chalk.cyan('═'.repeat(70)));
@@ -946,7 +937,7 @@ function exportWallet() {
 }
 
 async function settings() {
-    await showBanner();
+    
     console.log(chalk.cyan('═'.repeat(70)));
     console.log(chalk.cyan.bold('  ⚙️  SETTINGS'));
     console.log(chalk.cyan('═'.repeat(70)));
