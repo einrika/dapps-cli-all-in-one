@@ -671,21 +671,27 @@ async function unstakeTokens() {
 
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  🔓 UNSTAKE TOKENS'));
+    console.log(chalk.gray(`  Contract by: ${CONFIG.DEV_CONTRACT_AUTHOR}`));
     console.log(chalk.cyan('═'.repeat(50)));
+    console.log(chalk.white(`\nStake Contract: ${CONFIG.STAKE_CONTRACT}`));
 
-    const confirm = readline.question(chalk.yellow('\nUnstake ALL tokens? (yes/no): '));
+    const amount = readline.question(chalk.yellow('\nAmount to unstake: '));
+    const confirm = readline.question(
+        chalk.yellow(`Unstake ${amount}? (yes/no): `)
+    );
     if (confirm.toLowerCase() !== 'yes') return;
 
     try {
         console.log(chalk.yellow('⏳ Unstaking...'));
 
-        // DISAMAKAN PERSIS DENGAN paxid
         const execMsg = {
-            unstake: {}
+            unstake: {
+                amount: toMicro(amount)
+            }
         };
 
         const fee = {
-            amount: coins('75000', CONFIG.DENOM), // minimal network
+            amount: coins('75000', CONFIG.DENOM),
             gas: '700000'
         };
 
@@ -698,7 +704,6 @@ async function unstakeTokens() {
 
         console.log(chalk.green('\n✓ Unstaked!'));
         console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-
     } catch (e) {
         console.log(chalk.red(`\n✗ Error: ${e.message}`));
     }
@@ -717,16 +722,10 @@ async function claimStakingRewards() {
     try {
         console.log(chalk.yellow('⏳ Claiming rewards...'));
 
-        // EXEC MSG disamakan dengan paxid (claim via staking contract)
         const execMsg = {
-            claim: {
-                contract: CONFIG.STAKE_CONTRACT,
-                amount: '0',
-                msg: ''
-            }
+            claim: {}
         };
 
-        // fee disesuaikan agar TIDAK insufficient
         const fee = {
             amount: coins('75000', CONFIG.DENOM),
             gas: '500000'
@@ -741,7 +740,6 @@ async function claimStakingRewards() {
 
         console.log(chalk.green('\n✓ Rewards claimed!'));
         console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-
     } catch (e) {
         console.log(chalk.red(`\n✗ Error: ${e.message}`));
     }
