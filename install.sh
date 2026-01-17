@@ -2,12 +2,12 @@
 
 # ================================================================
 # PAXIHUB CREATE TOKEN PRC20 - COMPLETE INSTALLER
-# Version 2.0.3 - FULL (Upload + Stake + Execute List + Auto-Update)
+# Version 2.0.4 - FULL (Upload + Stake + Execute List + Auto-Update)
 # ================================================================
 
 set -e
 
-VERSION="2.0.3"
+VERSION="2.0.4"
 
 # Colors
 RED='\033[0;31m'
@@ -48,7 +48,7 @@ cat << "EOF"
 ==================================================
  PAXIHUB CREATE TOKEN PRC20
 --------------------------------------------------
- Version : 2.0.3
+ Version : 2.0.4
  Network : Paxi Mainnet
  Features: Token + Staking + Contracts
  Dev     : PaxiHub Team
@@ -136,7 +136,7 @@ clean_screen
 cat > package.json << 'PKGJSON'
 {
   "name": "paxi-dapp",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "PaxiHub - Complete Token Creator + Staking",
   "main": "dapp.js",
   "scripts": { "start": "node dapp.js" },
@@ -186,7 +186,7 @@ const { SigningStargateClient, GasPrice, coins } = require('@cosmjs/stargate');
 const { SigningCosmWasmClient } = require('@cosmjs/cosmwasm-stargate');
 
 const CONFIG = {
-    VERSION: '2.0.3',
+    VERSION: '2.0.4',
     RPC: 'https://mainnet-rpc.paxinet.io',
     LCD: 'https://mainnet-lcd.paxinet.io',
     PREFIX: 'paxi',
@@ -658,7 +658,7 @@ async function stakeTokens() {
         console.log(chalk.yellow('⏳ Staking...'));
         const stakeMsg = Buffer.from(JSON.stringify({ stake: {} })).toString('base64');
         const execMsg = { send: { contract: CONFIG.STAKE_CONTRACT, amount: toMicro(amount), msg: stakeMsg } };
-        const result = await wasmClient.execute(address, CONFIG.STAKE_TOKEN, execMsg, { amount: coins('30000', CONFIG.DENOM), gas: '1500000' });
+        const result = await wasmClient.execute(address, CONFIG.STAKE_TOKEN, execMsg, { amount: coins('75000', CONFIG.DENOM), gas: '1500000' });
         console.log(chalk.green('\n✓ Staked!'));
         console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
     } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
@@ -934,7 +934,7 @@ echo -e "${CYAN}[7/7]${NC} ${BLUE}Creating docs...${NC}"
 clean_screen
 
 cat > README.md << 'READMEEOF'
-# 🚀 PAXIHUB CREATE TOKEN PRC20 v2.0.3
+# 🚀 PAXIHUB CREATE TOKEN PRC20 v2.0.4
 
 ## Quick Start
 ```bash
@@ -963,7 +963,7 @@ Save frequently used commands:
 ## Developer Info
 - Dev Team: PaxiHub Team
 - Contract Developer: Manz
-- Version: 2.0.3
+- Version: 2.0.4
 
 ## Staking Contracts
 - Stake Token: paxi12rtyqvnevgzeyfjmr6z456ap3hrt9j2kjgvkm6qfn4ak6aqcgf5qtrv008
@@ -983,7 +983,7 @@ pause_and_clean
 clean_screen
 cat << "EOF"
 ╔════════════════════════════════════════════════╗
-║  ✅  INSTALLATION COMPLETE v2.0.3              ║
+║  ✅  INSTALLATION COMPLETE v2.0.4              ║
 ╚════════════════════════════════════════════════╝
 
 📦 Location: ~/paxi-dapp
