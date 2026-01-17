@@ -51,7 +51,7 @@ cat << "EOF"
  Version : 2.0.4
  Network : Paxi Mainnet
  Features: Token + Staking + Contracts
- Dev     : PaxiHub Team
+ Dev     : PaxiHub seven Team
 ==================================================
 EOF
 }
@@ -658,7 +658,7 @@ async function stakeTokens() {
         console.log(chalk.yellow('⏳ Staking...'));
         const stakeMsg = Buffer.from(JSON.stringify({ stake: {} })).toString('base64');
         const execMsg = { send: { contract: CONFIG.STAKE_CONTRACT, amount: toMicro(amount), msg: stakeMsg } };
-        const result = await wasmClient.execute(address, CONFIG.STAKE_TOKEN, execMsg, { amount: coins('75000', CONFIG.DENOM), gas: '1500000' });
+        const result = await wasmClient.execute(address, CONFIG.STAKE_TOKEN, execMsg, { amount: coins('30000', CONFIG.DENOM), gas: '1500000' });
         console.log(chalk.green('\n✓ Staked!'));
         console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
     } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
@@ -687,16 +687,43 @@ async function unstakeTokens() {
 async function claimStakingRewards() {
     if (!checkWallet()) return;
     await showBanner();
+
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  💰 CLAIM STAKING REWARDS'));
     console.log(chalk.cyan('═'.repeat(50)));
+
     try {
         console.log(chalk.yellow('⏳ Claiming rewards...'));
-        const execMsg = { claim_rewards: {} };
-        const result = await wasmClient.execute(address, CONFIG.STAKE_CONTRACT, execMsg, 'auto');
+
+        // EXEC MSG disamakan dengan paxid (claim via staking contract)
+        const execMsg = {
+            claim: {
+                contract: CONFIG.STAKE_CONTRACT,
+                amount: '0',
+                msg: ''
+            }
+        };
+
+        // fee disesuaikan agar TIDAK insufficient
+        const fee = {
+            amount: coins('75000', CONFIG.DENOM),
+            gas: '500000'
+        };
+
+        const result = await wasmClient.execute(
+            address,
+            CONFIG.STAKE_CONTRACT,
+            execMsg,
+            fee
+        );
+
         console.log(chalk.green('\n✓ Rewards claimed!'));
         console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+
+    } catch (e) {
+        console.log(chalk.red(`\n✗ Error: ${e.message}`));
+    }
+
     pause();
 }
 
@@ -1005,9 +1032,7 @@ cat << "EOF"
   Command: paxi-update
   Source: github.com/einrika/dapps-cli-all-in-one
 
-👨‍💻 Dev Team: PaxiHub Team
-🔧 Contract Dev: Manz
-EOF
+👨‍💻 Dev Team: PaxiHub seven Team
 
 echo ""
 read -p "Launch now? (y/n): " -n 1 -r
