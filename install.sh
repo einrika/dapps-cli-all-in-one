@@ -668,19 +668,41 @@ async function stakeTokens() {
 async function unstakeTokens() {
     if (!checkWallet()) return;
     await showBanner();
+
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  🔓 UNSTAKE TOKENS'));
     console.log(chalk.cyan('═'.repeat(50)));
-    const amount = readline.question(chalk.yellow('\nAmount to unstake: '));
-    const confirm = readline.question(chalk.yellow(`Unstake ${amount}? (yes/no): `));
+
+    const confirm = readline.question(chalk.yellow('\nUnstake ALL tokens? (yes/no): '));
     if (confirm.toLowerCase() !== 'yes') return;
+
     try {
         console.log(chalk.yellow('⏳ Unstaking...'));
-        const execMsg = { unstake: { amount: toMicro(amount) } };
-        const result = await wasmClient.execute(address, CONFIG.STAKE_CONTRACT, execMsg, 'auto');
+
+        // DISAMAKAN PERSIS DENGAN paxid
+        const execMsg = {
+            unstake: {}
+        };
+
+        const fee = {
+            amount: coins('75000', CONFIG.DENOM), // minimal network
+            gas: '700000'
+        };
+
+        const result = await wasmClient.execute(
+            address,
+            CONFIG.STAKE_CONTRACT,
+            execMsg,
+            fee
+        );
+
         console.log(chalk.green('\n✓ Unstaked!'));
         console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+
+    } catch (e) {
+        console.log(chalk.red(`\n✗ Error: ${e.message}`));
+    }
+
     pause();
 }
 
@@ -1032,8 +1054,9 @@ cat << "EOF"
   Command: paxi-update
   Source: github.com/einrika/dapps-cli-all-in-one
 
-👨‍💻 Dev Team: PaxiHub seven Team
+👨‍💻 Dev Team: seven0191
 
+EOF
 echo ""
 read -p "Launch now? (y/n): " -n 1 -r
 echo
