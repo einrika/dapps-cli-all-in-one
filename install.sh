@@ -926,12 +926,12 @@ pause_and_clean
 echo -e "${CYAN}[6/7]${NC} ${BLUE}Creating shortcuts...${NC}"
 clean_screen
 
-cat > paxi << 'SHORTCUTEOF'
+cat > paxicli << 'SHORTCUTEOF'
 #!/bin/bash
 printf '\033c'
 cd ~/paxi-dapp && node dapp.js
 SHORTCUTEOF
-chmod +x paxi
+chmod +x paxicli
 
 cat > paxi-update << 'UPDATEEOF'
 #!/bin/bash
@@ -995,7 +995,7 @@ if ! grep -q "paxi-dapp" ~/.bashrc; then
 fi
 
 mkdir -p "${PREFIX:-$HOME/.local/bin}" 2>/dev/null || true
-ln -sf ~/paxi-dapp/paxi "${PREFIX:-$HOME/.local/bin}/paxi" 2>/dev/null || true
+ln -sf ~/paxi-dapp/paxicli "${PREFIX:-$HOME/.local/bin}/paxi" 2>/dev/null || true
 ln -sf ~/paxi-dapp/paxi-update "${PREFIX:-$HOME/.local/bin}/paxi-update" 2>/dev/null || true
 
 show_progress 1
@@ -1011,7 +1011,7 @@ cat > README.md << 'READMEEOF'
 
 ## Quick Start
 ```bash
-paxi
+paxicli
 ```
 
 ## Auto-Update
@@ -1035,12 +1035,7 @@ Save frequently used commands:
 
 ## Developer Info
 - Dev Team: PaxiHub Team
-- Contract Developer: Manz
 - Version: 2.0.4
-
-## Staking Contracts
-- Stake Token: paxi12rtyqvnevgzeyfjmr6z456ap3hrt9j2kjgvkm6qfn4ak6aqcgf5qtrv008
-- Stake Contract: paxi1arzvvpl6f24zdzauy7skdn2pweaynqa8mf2722wn248wgx8nswzqjkl9r7
 
 ## Support
 - Discord: https://discord.gg/rA9Xzs69tx
@@ -1060,7 +1055,7 @@ cat << "EOF"
 ╚════════════════════════════════════════════════╝
 
 📦 Location: ~/paxi-dapp
-🚀 Launch: paxi
+🚀 Launch: paxicli
 🔄 Update: paxi-update
 
 ✨ FEATURES:
@@ -1089,5 +1084,5 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     cd ~/paxi-dapp || exit 1
     node dapp.js
 else
-    echo -e "\n${GREEN}Type 'paxi' to launch later${NC}\n"
+    echo -e "\n${GREEN}Type 'paxicli' to launch later${NC}\n"
 fi
