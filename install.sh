@@ -479,20 +479,46 @@ async function uploadContract() {
 async function instantiateContract() {
     if (!checkWallet()) return;
     await showBanner();
+
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  🎯 INSTANTIATE CONTRACT'));
     console.log(chalk.cyan('═'.repeat(50)));
+
     const codeId = readline.question(chalk.yellow('\nCode ID: '));
     const label = readline.question(chalk.yellow('Label: '));
     const initMsg = readline.question(chalk.yellow('Init Message (JSON): '));
+    const admin = readline.question(chalk.yellow('Admin (kosongkan jika none): '));
+
     try {
         console.log(chalk.yellow('⏳ Instantiating...'));
         const msg = JSON.parse(initMsg);
-        const result = await wasmClient.instantiate(address, parseInt(codeId), msg, label, 'auto');
+
+        const options =
+            admin && admin.trim() !== ''
+                ? { admin: admin.trim() }
+                : undefined;
+
+        const result = await wasmClient.instantiate(
+            address,
+            parseInt(codeId),
+            msg,
+            label,
+            'auto',
+            options
+        );
+
         console.log(chalk.green('\n✓ Contract instantiated!'));
         console.log(chalk.white(`Contract: ${result.contractAddress}`));
         console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+        console.log(
+            chalk.white(
+                `Admin: ${options?.admin ?? 'none'}`
+            )
+        );
+    } catch (e) {
+        console.log(chalk.red(`\n✗ Error: ${e.message}`));
+    }
+
     pause();
 }
 
