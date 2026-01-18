@@ -990,12 +990,12 @@ chmod +x paxi-update
 
 if ! grep -q "paxi-dapp" ~/.bashrc; then
     echo 'export PATH="$HOME/paxi-dapp:$PATH"' >> ~/.bashrc
-    echo 'alias paxi="cd ~/paxi-dapp && ./paxi"' >> ~/.bashrc
+    echo 'alias paxicli="cd ~/paxi-dapp && ./paxicli"' >> ~/.bashrc
     echo 'alias paxi-update="cd ~/paxi-dapp && ./paxi-update"' >> ~/.bashrc
 fi
 
 mkdir -p "${PREFIX:-$HOME/.local/bin}" 2>/dev/null || true
-ln -sf ~/paxi-dapp/paxicli "${PREFIX:-$HOME/.local/bin}/paxi" 2>/dev/null || true
+ln -sf ~/paxi-dapp/paxicli "${PREFIX:-$HOME/.local/bin}/paxicli" 2>/dev/null || true
 ln -sf ~/paxi-dapp/paxi-update "${PREFIX:-$HOME/.local/bin}/paxi-update" 2>/dev/null || true
 
 show_progress 1
