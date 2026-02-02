@@ -288,7 +288,7 @@ const CONFIG_FILE = 'config.json';
 const NETWORK_CONFIG = {
     testnet: {
         name: 'Testnet',
-        chainId: 'paxitest',
+        chainId: 'paxi-testnet',
         rpc: 'https://testnet-rpc.paxinet.io',
         lcd: 'https://testnet-lcd.paxinet.io',
         denom: 'upaxi',
@@ -297,7 +297,7 @@ const NETWORK_CONFIG = {
     },
     mainnet: {
         name: 'Mainnet',
-        chainId: 'paxi',
+        chainId: 'paxi-mainnet',
         rpc: 'https://mainnet-rpc.paxinet.io',
         lcd: 'https://mainnet-lcd.paxinet.io',
         denom: 'upaxi',
@@ -308,7 +308,7 @@ const NETWORK_CONFIG = {
 
 let CONFIG = {
     network: 'mainnet',
-    DEV_CONTRACT_AUTHOR: 'Manz',
+    DEV_CONTRACT_AUTHOR: 'Seven',
     STAKING_CONTRACT: 'paxi1staking_contract_here',
     VERSION: '3.0.0'
 };
