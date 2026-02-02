@@ -117,7 +117,7 @@ MISSING_DEPS=""
 
 # Check semua dependencies
 if ! check_installed node; then 
-    DEPS_TO_INSTALL="$DEPS_TO_INSTALL nodejs-lts"
+    DEPS_TO_INSTALL="$DEPS_TO_INSTALL nodejs"
     MISSING_DEPS="$MISSING_DEPS nodejs"
 fi
 if ! check_installed git; then 
@@ -143,24 +143,23 @@ if [ -n "$DEPS_TO_INSTALL" ]; then
     echo -e "${YELLOW}⏳ Installing packages...${NC}"
     
     # Update repo dulu
-    pkg update -y >/dev/null 2>&1 || true
+    echo -e "${CYAN}Updating package list...${NC}"
+    pkg update -y
     
-    # Install packages
+    # Install packages dengan output visible
     echo -e "${CYAN}Installing:$DEPS_TO_INSTALL${NC}"
-    pkg install -y $DEPS_TO_INSTALL
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${YELLOW}⚠ Trying one by one...${NC}"
+    if ! pkg install -y $DEPS_TO_INSTALL; then
+        echo -e "${YELLOW}⚠ Some packages failed, trying one by one...${NC}"
         for dep in $DEPS_TO_INSTALL; do
-            echo -e "  - $dep"
-            pkg install -y $dep 2>/dev/null || true
+            echo -e "${CYAN}  Installing $dep...${NC}"
+            pkg install -y $dep || echo -e "${RED}  ✗ Failed: $dep${NC}"
         done
     fi
     
     show_progress 3
     echo -e "${GREEN}✓ Installation completed${NC}"
 else
-    echo -e "${GREEN}✓ All dependencies OK${NC}"
+    echo -e "${GREEN}✓ All basic dependencies OK${NC}"
     show_progress 1
 fi
 
@@ -171,22 +170,42 @@ echo -e "${CYAN}Validating Node.js & npm...${NC}"
 
 if ! check_installed node; then
     echo -e "${YELLOW}Node.js not found, installing...${NC}"
-    pkg install -y nodejs >/dev/null 2>&1
+    if ! pkg install -y nodejs; then
+        echo -e "${RED}✗ FATAL: Cannot install Node.js!${NC}"
+        echo -e "${WHITE}Manual fix required:${NC}"
+        echo -e "${WHITE}  pkg update${NC}"
+        echo -e "${WHITE}  pkg install nodejs${NC}"
+        exit 1
+    fi
     
     if ! check_installed node; then
-        echo -e "${RED}✗ FATAL: Cannot install Node.js!${NC}"
-        echo -e "${WHITE}Fix: pkg install nodejs${NC}"
+        echo -e "${RED}✗ FATAL: Node.js still not found!${NC}"
         exit 1
     fi
 fi
 
 if ! check_installed npm; then
     echo -e "${YELLOW}npm not found, installing...${NC}"
-    pkg install -y npm >/dev/null 2>&1
     
+    # Try npm package first
+    if pkg install -y npm 2>&1 | grep -q "Unable to locate package"; then
+        echo -e "${YELLOW}npm package not found, reinstalling nodejs...${NC}"
+        pkg uninstall nodejs -y 2>/dev/null || true
+        pkg install -y nodejs
+    else
+        pkg install -y npm
+    fi
+    
+    # Final check
     if ! check_installed npm; then
-        echo -e "${RED}✗ FATAL: npm not available!${NC}"
-        echo -e "${WHITE}Fix: pkg install nodejs${NC}"
+        echo -e "${RED}✗✗ CRITICAL ERROR: npm not available!${NC}"
+        echo -e "${YELLOW}═════════════════════════════════════════${NC}"
+        echo -e "${WHITE}Possible solutions:${NC}"
+        echo -e "${WHITE}1. pkg uninstall nodejs${NC}"
+        echo -e "${WHITE}2. pkg update${NC}"
+        echo -e "${WHITE}3. pkg install nodejs${NC}"
+        echo -e "${WHITE}4. node --version && npm --version${NC}"
+        echo -e "${YELLOW}═════════════════════════════════════════${NC}"
         exit 1
     fi
 fi
@@ -985,6 +1004,14 @@ cat << "EOF"
 
 EOF
 echo ""
+
+# Reload bashrc agar alias langsung tersedia
+echo -e "${CYAN}Loading new commands...${NC}"
+source ~/.bashrc 2>/dev/null || true
+
+echo -e "${GREEN}✓ Commands loaded!${NC}"
+echo ""
+
 read -p "Launch now? (y/n): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -992,5 +1019,10 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     cd ~/paxi-dapp || exit 1
     node dapp.js
 else
-    echo -e "\n${GREEN}Type 'paxidev' to launch later${NC}\n"
+    echo -e "\n${YELLOW}═══════════════════════════════════════${NC}"
+    echo -e "${GREEN}To launch PaxiHub, use one of:${NC}"
+    echo -e "${WHITE}1. paxidev${NC}         ${GRAY}(if already in PATH)${NC}"
+    echo -e "${WHITE}2. cd ~/paxi-dapp && ./paxidev${NC}"
+    echo -e "${WHITE}3. source ~/.bashrc && paxidev${NC}"
+    echo -e "${YELLOW}═══════════════════════════════════════${NC}\n"
 fi
