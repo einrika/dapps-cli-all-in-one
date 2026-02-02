@@ -82,10 +82,6 @@ echo -e "${CYAN}🚀 Starting installation...${NC}"
 echo ""
 
 # [1/7] System Update
-# [1/7] System Update (robust + timeout + skip)
-
-echo -e "${CYAN}[1/7]${NC} ${BLUE}Updating system...${NC}"
-clean_screen
 echo -e "${CYAN}[1/7]${NC} ${BLUE}Updating system...${NC}"
 
 UPDATE_FLAG="$HOME/.paxihub_last_update"
@@ -113,9 +109,9 @@ fi
 echo ""
 
 # [2/7] Dependencies
-echo -e "${CYAN}[2/7]${NC} ${BLUE}Smart dependency check...${NC}"
 clean_screen
 echo -e "${CYAN}[2/7]${NC} ${BLUE}Smart dependency check...${NC}"
+
 DEPS_TO_INSTALL=""
 if ! check_installed node; then DEPS_TO_INSTALL="$DEPS_TO_INSTALL nodejs"; fi
 if ! check_installed git; then DEPS_TO_INSTALL="$DEPS_TO_INSTALL git"; fi
@@ -138,7 +134,7 @@ pause_and_clean
 
 # [3/7] Create Project
 echo -e "${CYAN}[3/7]${NC} ${BLUE}Creating project...${NC}"
-clean_screen
+
 cd ~ || exit 1
 if [ -d "paxi-dapp" ]; then
     echo -e "${YELLOW}⚠ Backing up existing paxi-dapp...${NC}"
@@ -154,7 +150,7 @@ pause_and_clean
 
 # [4/7] NPM Packages
 echo -e "${CYAN}[4/7]${NC} ${BLUE}Installing NPM packages...${NC}"
-clean_screen
+
 cat > package.json << 'PKGJSON'
 {
   "name": "paxi-dapp",
@@ -195,7 +191,6 @@ pause_and_clean
 
 # [5/7] Create DApp
 echo -e "${CYAN}[5/7]${NC} ${BLUE}Creating DApp v${VERSION}...${NC}"
-clean_screen
 
 cat > dapp.js << 'DAPPEOF'
 #!/usr/bin/env node
@@ -255,74 +250,43 @@ function toHuman(micro, decimals = CONFIG.DECIMALS) {
     const value = BigInt(micro.toString()), base = BigInt(10) ** BigInt(decimals);
     const intPart = value / base, fracPart = value % base;
     const fracStr = fracPart.toString().padStart(decimals, '0').replace(/0+$/, '');
-    return fracStr.length > 0 ? `${intPart}.${fracStr}` : intPart.toString();
+    return fracStr ? `${intPart}.${fracStr}` : intPart.toString();
 }
 
 function toMicro(human, decimals = CONFIG.DECIMALS) {
     const [intPart, fracPart = ''] = human.toString().split('.');
-    const frac = (fracPart + '0'.repeat(decimals)).slice(0, decimals);
-    return (BigInt(intPart || '0') * (BigInt(10) ** BigInt(decimals)) + BigInt(frac || '0')).toString();
+    const paddedFrac = fracPart.padEnd(decimals, '0').substring(0, decimals);
+    return (BigInt(intPart) * BigInt(10) ** BigInt(decimals) + BigInt(paddedFrac)).toString();
+}
+
+function pause() { readline.question(chalk.gray('\nTekan Enter untuk lanjut...')); }
+
+function loadHistory() {
+    try { return JSON.parse(fs.readFileSync('history.json', 'utf8')); }
+    catch { return []; }
 }
 
 function saveHistory(entry) {
-    let history = [];
-    if (fs.existsSync('history.json')) {
-        try { history = JSON.parse(fs.readFileSync('history.json', 'utf8')); }
-        catch (e) { history = []; }
-    }
-    history.push(entry);
-    fs.writeFileSync('history.json', JSON.stringify(history, null, 2));
+    const history = loadHistory();
+    history.unshift({ ...entry, timestamp: new Date().toISOString() });
+    fs.writeFileSync('history.json', JSON.stringify(history.slice(0, 50), null, 2));
 }
-
-function loadHistory() {
-    if (fs.existsSync('history.json')) {
-        try { return JSON.parse(fs.readFileSync('history.json', 'utf8')); }
-        catch (e) { return []; }
-    }
-    return [];
-}
-
-async function loadWallet(mnemonicPhrase) {
-    console.log(chalk.yellow('⏳ Loading...'));
-    wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonicPhrase, { prefix: CONFIG.PREFIX });
-    const accounts = await wallet.getAccounts();
-    address = accounts[0].address;
-    client = await SigningStargateClient.connectWithSigner(CONFIG.RPC, wallet, { gasPrice: GasPrice.fromString(CONFIG.GAS_PRICE) });
-    wasmClient = await SigningCosmWasmClient.connectWithSigner(CONFIG.RPC, wallet, { gasPrice: GasPrice.fromString(CONFIG.GAS_PRICE) });
-    console.log(chalk.green('✓ Connected'));
-}
-
-function checkWallet() {
-    if (!wallet) {
-        console.log(chalk.red('\n✗ No wallet! Generate or import first.'));
-        readline.question(chalk.gray('\nTekan Enter...'));
-        return false;
-    }
-    return true;
-}
-
-function pause() { readline.question(chalk.gray('\nTekan Enter...')); }
 
 async function generateWallet() {
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  🔑 GENERATE NEW WALLET'));
     console.log(chalk.cyan('═'.repeat(50)));
-    mnemonic = bip39.generateMnemonic(128);
-    const words = mnemonic.split(' ');
-    console.log(chalk.yellow('\n📝 MNEMONIC (12 WORDS):\n'));
-    const table = new Table({ head: ['#', 'Word', '#', 'Word', '#', 'Word'], colWidths: [4, 12, 4, 12, 4, 12], style: { head: ['cyan'] } });
-    for (let i = 0; i < 4; i++) {
-        const idx = i * 3;
-        table.push([chalk.gray(idx + 1), chalk.white.bold(words[idx]), chalk.gray(idx + 2), chalk.white.bold(words[idx + 1]), chalk.gray(idx + 3), chalk.white.bold(words[idx + 2])]);
-    }
-    console.log(table.toString());
-    console.log(chalk.red.bold('\n⚠️  WARNING: Write on paper • NEVER share'));
-    const confirm = readline.question(chalk.yellow('\nBacked up? (yes/no): '));
-    if (confirm.toLowerCase() === 'yes') {
-        await loadWallet(mnemonic);
-        console.log(chalk.green('\n✓ Generated!'));
-    }
+    mnemonic = bip39.generateMnemonic(256);
+    wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, { prefix: CONFIG.PREFIX });
+    [{ address }] = await wallet.getAccounts();
+    client = await SigningStargateClient.connectWithSigner(CONFIG.RPC, wallet, { gasPrice: GasPrice.fromString(CONFIG.GAS_PRICE) });
+    wasmClient = await SigningCosmWasmClient.connectWithSigner(CONFIG.RPC, wallet, { gasPrice: GasPrice.fromString(CONFIG.GAS_PRICE) });
+    console.log(chalk.green('\n✓ Wallet created!'));
+    console.log(chalk.white(`\nAddress: ${address}`));
+    console.log(chalk.yellow('\n⚠️  Save your mnemonic (24 words):'));
+    console.log(chalk.red(mnemonic));
+    console.log(chalk.red('\nNEVER share with anyone!'));
     pause();
 }
 
@@ -331,491 +295,360 @@ async function importWallet() {
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  📥 IMPORT WALLET'));
     console.log(chalk.cyan('═'.repeat(50)));
-    const input = readline.question(chalk.gray('Mnemonic: '));
-    if (!bip39.validateMnemonic(input)) {
-        console.log(chalk.red('\n✗ Invalid!'));
-        pause();
-        return;
+    console.log(chalk.yellow('\nEnter your 24-word mnemonic:'));
+    mnemonic = readline.question('');
+    if (!bip39.validateMnemonic(mnemonic)) {
+        console.log(chalk.red('\n✗ Invalid mnemonic!'));
+        return pause();
     }
-    mnemonic = input;
-    await loadWallet(mnemonic);
-    console.log(chalk.green('\n✓ Imported!'));
+    wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, { prefix: CONFIG.PREFIX });
+    [{ address }] = await wallet.getAccounts();
+    client = await SigningStargateClient.connectWithSigner(CONFIG.RPC, wallet, { gasPrice: GasPrice.fromString(CONFIG.GAS_PRICE) });
+    wasmClient = await SigningCosmWasmClient.connectWithSigner(CONFIG.RPC, wallet, { gasPrice: GasPrice.fromString(CONFIG.GAS_PRICE) });
+    const balance = await client.getBalance(address, CONFIG.DENOM);
+    console.log(chalk.green('\n✓ Wallet imported!'));
+    console.log(chalk.white(`Address: ${address}`));
+    console.log(chalk.white(`Balance: ${toHuman(balance.amount)} PAXI`));
     pause();
 }
 
 async function sendPaxi() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet! Generate or import first.')); return pause(); }
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  📤 SEND PAXI'));
     console.log(chalk.cyan('═'.repeat(50)));
-    const recipient = readline.question(chalk.yellow('\nRecipient: '));
-    const amount = readline.question(chalk.yellow('Amount: '));
-    const memo = readline.question(chalk.yellow('Memo: ')) || '';
-    const confirm = readline.question(chalk.yellow(`\nSend ${amount} PAXI? (yes/no): `));
-    if (confirm.toLowerCase() !== 'yes') return;
+    const balance = await client.getBalance(address, CONFIG.DENOM);
+    console.log(chalk.white(`\nBalance: ${toHuman(balance.amount)} PAXI`));
+    const recipient = readline.question(chalk.yellow('\nRecipient address: '));
+    const amount = readline.question(chalk.yellow('Amount (PAXI): '));
+    const microAmount = toMicro(amount);
+    console.log(chalk.yellow(`\n⏳ Sending ${amount} PAXI...`));
     try {
-        console.log(chalk.yellow('⏳ Sending...'));
-        const result = await client.sendTokens(address, recipient, coins(toMicro(amount), CONFIG.DENOM), 'auto', memo);
-        if (result && (result.code === 0 || !result.code)) {
-            console.log(chalk.green('\n✓ Success!'));
-            if (result.transactionHash) console.log(chalk.white(`Hash: ${result.transactionHash}`));
-            saveHistory({ type: 'SEND', amount, recipient, hash: result.transactionHash, status: 'success', timestamp: Date.now() });
-        } else { throw new Error(`Code ${result.code}`); }
-    } catch (e) {
-        console.log(chalk.red(`\n✗ Failed: ${e.message}`));
-        saveHistory({ type: 'SEND', amount, recipient, status: 'failed', error: e.message, timestamp: Date.now() });
+        const result = await client.sendTokens(address, recipient, coins(microAmount, CONFIG.DENOM), 'auto');
+        console.log(chalk.green('\n✓ Success!'));
+        console.log(chalk.white(`TxHash: ${result.transactionHash}`));
+        saveHistory({ type: 'send', amount, recipient, hash: result.transactionHash, status: 'success' });
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
+        saveHistory({ type: 'send', amount, recipient, hash: 'N/A', status: 'failed' });
     }
     pause();
 }
 
 async function viewHistory() {
-    if (!checkWallet()) return;
     await showBanner();
-    console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.cyan.bold('  📜 TRANSACTION HISTORY'));
-    console.log(chalk.cyan('═'.repeat(50)));
-    try {
-        console.log(chalk.yellow('\n⏳ Fetching...'));
-        const response = await axios.get(`${CONFIG.LCD}/cosmos/tx/v1beta1/txs?events=message.sender='${address}'&order_by=2&limit=20`);
-        if (response.data.txs && response.data.txs.length > 0) {
-            console.log(chalk.green(`\n✓ Found ${response.data.txs.length} transactions:\n`));
-            response.data.txs.forEach((tx, idx) => {
-                console.log(chalk.cyan(`[${idx + 1}] Block: ${tx.height || 'N/A'}`));
-                console.log(chalk.white(`Hash: ${tx.txhash || 'N/A'}`));
-                console.log('');
-            });
-        } else { console.log(chalk.gray('\nNo transactions.')); }
-    } catch (e) {
-        console.log(chalk.yellow('\n⚠️  Using local history:\n'));
-        const history = loadHistory();
-        if (history.length === 0) { console.log(chalk.gray('No local history.')); }
-        else {
-            history.slice(-10).reverse().forEach((tx, idx) => {
-                const date = new Date(tx.timestamp).toLocaleString();
-                const status = tx.status === 'success' ? chalk.green('✓') : chalk.red('✗');
-                console.log(`${status} [${idx + 1}] ${tx.type} | ${tx.amount} | ${date}`);
-            });
-        }
-    }
+    const history = loadHistory();
+    if (!history.length) { console.log(chalk.yellow('\nNo history yet.')); return pause(); }
+    const table = new Table({ head: ['Time', 'Type', 'Amount', 'Recipient/Token', 'Status'] });
+    history.slice(0, 10).forEach(h => {
+        table.push([
+            new Date(h.timestamp).toLocaleString(),
+            h.type,
+            h.amount || 'N/A',
+            (h.recipient || h.tokenAddress || 'N/A').substring(0, 20),
+            h.status === 'success' ? chalk.green('✓') : chalk.red('✗')
+        ]);
+    });
+    console.log(table.toString());
     pause();
 }
 
 function showAddressQR() {
-    if (!checkWallet()) return;
+    if (!address) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     clearScreen();
-    console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.cyan.bold('  🔍 ADDRESS QR'));
-    console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.green(`\n${address}\n`));
+    console.log(chalk.cyan('\n📱 YOUR ADDRESS QR CODE:\n'));
     qrcode.generate(address, { small: true });
+    console.log(chalk.white(`\n${address}`));
     pause();
 }
 
 async function createPRC20() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  🪙 CREATE PRC-20 TOKEN'));
     console.log(chalk.cyan('═'.repeat(50)));
-    const name = readline.question(chalk.yellow('\nName: '));
+    const name = readline.question(chalk.yellow('\nToken Name: '));
     const symbol = readline.question(chalk.yellow('Symbol: '));
-    const decimalsStr = readline.question(chalk.yellow('Decimals (6): ')) || '6';
-    const decimals = parseInt(decimalsStr) || 6;
-    const supply = readline.question(chalk.yellow('Supply: '));
-    const microSupply = toMicro(supply, decimals);
-    const initMsg = { name, symbol, decimals: parseInt(decimals), initial_balances: [{ address: address, amount: microSupply }], mint: { minter: address }, marketing: { marketing: address } };
+    const decimals = readline.question(chalk.yellow('Decimals (e.g., 6): '));
+    const supply = readline.question(chalk.yellow('Total Supply: '));
+    const microSupply = toMicro(supply, parseInt(decimals));
+    const initMsg = { name, symbol, decimals: parseInt(decimals), initial_balances: [{ address, amount: microSupply }], mint: { minter: address } };
+    console.log(chalk.yellow('\n⏳ Creating token...'));
     try {
-        console.log(chalk.yellow('⏳ Creating...'));
-        const result = await wasmClient.instantiate(address, CONFIG.PRC20_CODE_ID, initMsg, `${symbol}_token`, 'auto');
-        console.log(chalk.green('\n✓ Created!'));
-        console.log(chalk.white(`Contract: ${result.contractAddress || 'N/A'}`));
-        console.log(chalk.white(`Supply: ${supply} ${symbol}`));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+        const result = await wasmClient.instantiate(address, CONFIG.PRC20_CODE_ID, initMsg, symbol, 'auto');
+        console.log(chalk.green('\n✓ Token created!'));
+        console.log(chalk.white(`Contract: ${result.contractAddress}`));
+        saveHistory({ type: 'create_token', amount: supply, tokenAddress: result.contractAddress, status: 'success' });
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
+    }
     pause();
 }
 
 async function transferPRC20() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  📤 TRANSFER PRC-20'));
     console.log(chalk.cyan('═'.repeat(50)));
-    const contract = readline.question(chalk.yellow('\nContract: '));
-    let decimals = 6;
-    try {
-        const info = await wasmClient.queryContractSmart(contract, { token_info: {} });
-        decimals = info.decimals;
-        console.log(chalk.gray(`Token: ${info.name} (${info.symbol})`));
-    } catch (e) {}
+    const contract = readline.question(chalk.yellow('\nToken contract: '));
     const recipient = readline.question(chalk.yellow('Recipient: '));
     const amount = readline.question(chalk.yellow('Amount: '));
-    const microAmount = toMicro(amount, decimals);
+    const msg = { transfer: { recipient, amount } };
+    console.log(chalk.yellow('\n⏳ Transferring...'));
     try {
-        console.log(chalk.yellow('⏳ Transferring...'));
-        const result = await wasmClient.execute(address, contract, { transfer: { recipient, amount: microAmount } }, 'auto');
-        if (result && (result.code === 0 || !result.code)) { console.log(chalk.green(`\n✓ Transferred ${amount}!`)); }
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+        const result = await wasmClient.execute(address, contract, msg, 'auto');
+        console.log(chalk.green('\n✓ Success!'));
+        console.log(chalk.white(`TxHash: ${result.transactionHash}`));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
+    }
     pause();
 }
 
 async function checkPRC20Balance() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  💵 CHECK PRC-20 BALANCE'));
     console.log(chalk.cyan('═'.repeat(50)));
-    const contract = readline.question(chalk.yellow('\nContract: '));
-    const queryAddr = readline.question(chalk.yellow(`Address (Enter=you): `)) || address;
+    const contract = readline.question(chalk.yellow('\nToken contract: '));
+    const query = { balance: { address } };
     try {
-        console.log(chalk.yellow('⏳ Querying...'));
-        const info = await wasmClient.queryContractSmart(contract, { token_info: {} });
-        const balance = await wasmClient.queryContractSmart(contract, { balance: { address: queryAddr } });
-        const humanBalance = toHuman(balance.balance, info.decimals);
-        console.log(chalk.green(`\n✓ Balance: ${humanBalance} ${info.symbol}`));
-        console.log(chalk.gray(`Token: ${info.name}`));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+        const result = await wasmClient.queryContractSmart(contract, query);
+        console.log(chalk.green('\n✓ Balance:'));
+        console.log(chalk.white(JSON.stringify(result, null, 2)));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
+    }
     pause();
 }
 
 async function uploadContract() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  📤 UPLOAD CONTRACT'));
     console.log(chalk.cyan('═'.repeat(50)));
     const wasmPath = readline.question(chalk.yellow('\nPath to .wasm file: '));
-    if (!fs.existsSync(wasmPath)) {
-        console.log(chalk.red('\n✗ File not found!'));
-        pause();
-        return;
-    }
+    if (!fs.existsSync(wasmPath)) { console.log(chalk.red('\n✗ File not found!')); return pause(); }
+    const wasmCode = fs.readFileSync(wasmPath);
+    console.log(chalk.yellow('\n⏳ Uploading...'));
     try {
-        console.log(chalk.yellow('\n⏳ Uploading (may take a while)...'));
-        const wasmCode = fs.readFileSync(wasmPath);
         const result = await wasmClient.upload(address, wasmCode, 'auto');
-        console.log(chalk.green('\n✓ Contract uploaded!'));
+        console.log(chalk.green('\n✓ Uploaded!'));
         console.log(chalk.white(`Code ID: ${result.codeId}`));
-        console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-        console.log(chalk.gray(`\nDeveloped by: ${CONFIG.DEV_CONTRACT_AUTHOR}`));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+        console.log(chalk.white(`TxHash: ${result.transactionHash}`));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
+    }
     pause();
 }
 
 async function instantiateContract() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
-
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  🎯 INSTANTIATE CONTRACT'));
     console.log(chalk.cyan('═'.repeat(50)));
-
-    const codeId = readline.question(chalk.yellow('\nCode ID: '));
+    const codeId = parseInt(readline.question(chalk.yellow('\nCode ID: ')));
     const label = readline.question(chalk.yellow('Label: '));
-    const initMsg = readline.question(chalk.yellow('Init Message (JSON): '));
-    const admin = readline.question(chalk.yellow('Admin (kosongkan jika none): '));
-
+    console.log(chalk.yellow('Init message (JSON):'));
+    const msgStr = readline.question('');
+    const initMsg = JSON.parse(msgStr);
+    console.log(chalk.yellow('\n⏳ Instantiating...'));
     try {
-        console.log(chalk.yellow('⏳ Instantiating...'));
-        const msg = JSON.parse(initMsg);
-
-        const options =
-            admin && admin.trim() !== ''
-                ? { admin: admin.trim() }
-                : undefined;
-
-        const result = await wasmClient.instantiate(
-            address,
-            parseInt(codeId),
-            msg,
-            label,
-            'auto',
-            options
-        );
-
-        console.log(chalk.green('\n✓ Contract instantiated!'));
+        const result = await wasmClient.instantiate(address, codeId, initMsg, label, 'auto');
+        console.log(chalk.green('\n✓ Instantiated!'));
         console.log(chalk.white(`Contract: ${result.contractAddress}`));
-        console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-        console.log(
-            chalk.white(
-                `Admin: ${options?.admin ?? 'none'}`
-            )
-        );
-    } catch (e) {
-        console.log(chalk.red(`\n✗ Error: ${e.message}`));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
     }
-
     pause();
 }
 
 async function executeContract() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  ⚡ EXECUTE CONTRACT'));
     console.log(chalk.cyan('═'.repeat(50)));
-    const contract = readline.question(chalk.yellow('\nContract: '));
-    const execMsg = readline.question(chalk.yellow('Execute Message (JSON): '));
-    const fundsStr = readline.question(chalk.yellow('Funds (PAXI, optional): ')) || '0';
+    const contract = readline.question(chalk.yellow('\nContract address: '));
+    console.log(chalk.yellow('Execute message (JSON):'));
+    const msgStr = readline.question('');
+    const msg = JSON.parse(msgStr);
+    console.log(chalk.yellow('\n⏳ Executing...'));
     try {
-        console.log(chalk.yellow('⏳ Executing...'));
-        const msg = JSON.parse(execMsg);
-        const fundsAmount = parseFloat(fundsStr) > 0 ? coins(toMicro(fundsStr), CONFIG.DENOM) : [];
-        const result = await wasmClient.execute(address, contract, msg, 'auto', '', fundsAmount);
+        const result = await wasmClient.execute(address, contract, msg, 'auto');
         console.log(chalk.green('\n✓ Executed!'));
-        console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+        console.log(chalk.white(`TxHash: ${result.transactionHash}`));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
+    }
     pause();
 }
 
 async function queryContract() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  🔍 QUERY CONTRACT'));
     console.log(chalk.cyan('═'.repeat(50)));
-    const contract = readline.question(chalk.yellow('\nContract: '));
-    const queryMsg = readline.question(chalk.yellow('Query Message (JSON): '));
+    const contract = readline.question(chalk.yellow('\nContract address: '));
+    console.log(chalk.yellow('Query message (JSON):'));
+    const msgStr = readline.question('');
+    const query = JSON.parse(msgStr);
     try {
-        console.log(chalk.yellow('⏳ Querying...'));
-        const msg = JSON.parse(queryMsg);
-        const result = await wasmClient.queryContractSmart(contract, msg);
-        console.log(chalk.green('\n✓ Query Result:'));
+        const result = await wasmClient.queryContractSmart(contract, query);
+        console.log(chalk.green('\n✓ Result:'));
         console.log(chalk.white(JSON.stringify(result, null, 2)));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
+    }
     pause();
 }
 
+function loadExecuteList() {
+    try { return JSON.parse(fs.readFileSync('execute_list.json', 'utf8')); }
+    catch { return []; }
+}
+
+function saveExecuteList(list) {
+    fs.writeFileSync('execute_list.json', JSON.stringify(list, null, 2));
+}
+
 async function saveExecuteCommand() {
-    if (!checkWallet()) return;
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  💾 SAVE EXECUTE COMMAND'));
     console.log(chalk.cyan('═'.repeat(50)));
-    const name = readline.question(chalk.yellow('\nCommand Name: '));
-    const contract = readline.question(chalk.yellow('Contract: '));
-    const execMsg = readline.question(chalk.yellow('Execute Message (JSON): '));
-    const fundsStr = readline.question(chalk.yellow('Funds (PAXI, optional): ')) || '0';
-    const command = { name, contract, execMsg, funds: fundsStr, timestamp: Date.now() };
-    let commands = [];
-    if (fs.existsSync('execute_commands.json')) {
-        try { commands = JSON.parse(fs.readFileSync('execute_commands.json', 'utf8')); }
-        catch (e) { commands = []; }
-    }
-    commands.push(command);
-    fs.writeFileSync('execute_commands.json', JSON.stringify(commands, null, 2));
+    const name = readline.question(chalk.yellow('\nCommand name: '));
+    const contract = readline.question(chalk.yellow('Contract address: '));
+    console.log(chalk.yellow('Execute message (JSON):'));
+    const msgStr = readline.question('');
+    const list = loadExecuteList();
+    list.push({ name, contract, message: msgStr });
+    saveExecuteList(list);
     console.log(chalk.green('\n✓ Command saved!'));
     pause();
 }
 
 async function listExecuteCommands() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
+    const list = loadExecuteList();
+    if (!list.length) { console.log(chalk.yellow('\nNo saved commands.')); return pause(); }
     console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.cyan.bold('  📋 SAVED EXECUTE COMMANDS'));
+    console.log(chalk.cyan.bold('  📋 SAVED COMMANDS'));
     console.log(chalk.cyan('═'.repeat(50)));
-    if (!fs.existsSync('execute_commands.json')) {
-        console.log(chalk.gray('\nNo saved commands.'));
-        pause();
-        return;
-    }
-    let commands = [];
-    try { commands = JSON.parse(fs.readFileSync('execute_commands.json', 'utf8')); }
-    catch (e) {
-        console.log(chalk.red('\n✗ Error reading commands'));
-        pause();
-        return;
-    }
-    if (commands.length === 0) {
-        console.log(chalk.gray('\nNo saved commands.'));
-        pause();
-        return;
-    }
-    console.log(chalk.green(`\n✓ Found ${commands.length} saved commands:\n`));
-    commands.forEach((cmd, idx) => {
-        console.log(chalk.cyan(`[${idx + 1}] ${cmd.name}`));
-        console.log(chalk.white(`    Contract: ${cmd.contract.substring(0, 20)}...`));
-        console.log(chalk.gray(`    Saved: ${new Date(cmd.timestamp).toLocaleString()}`));
-        console.log('');
+    list.forEach((cmd, i) => {
+        console.log(chalk.white(`\n${i + 1}. ${cmd.name}`));
+        console.log(chalk.gray(`   Contract: ${cmd.contract}`));
     });
-    const choice = readline.question(chalk.yellow('Execute which? (number or 0 to cancel): '));
+    const choice = readline.question(chalk.yellow('\nRun command #: '));
     const idx = parseInt(choice) - 1;
-    if (idx >= 0 && idx < commands.length) {
-        const cmd = commands[idx];
-        console.log(chalk.yellow(`\nExecuting: ${cmd.name}...`));
-        const confirm = readline.question(chalk.yellow('Confirm? (yes/no): '));
-        if (confirm.toLowerCase() !== 'yes') return;
-        try {
-            const msg = JSON.parse(cmd.execMsg);
-            const fundsAmount = parseFloat(cmd.funds) > 0 ? coins(toMicro(cmd.funds), CONFIG.DENOM) : [];
-            const result = await wasmClient.execute(address, cmd.contract, msg, 'auto', '', fundsAmount);
-            console.log(chalk.green('\n✓ Executed!'));
-            console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-        } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+    if (idx < 0 || idx >= list.length) { console.log(chalk.red('\n✗ Invalid!')); return pause(); }
+    const cmd = list[idx];
+    console.log(chalk.yellow('\n⏳ Executing...'));
+    try {
+        const result = await wasmClient.execute(address, cmd.contract, JSON.parse(cmd.message), 'auto');
+        console.log(chalk.green('\n✓ Executed!'));
+        console.log(chalk.white(`TxHash: ${result.transactionHash}`));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
     }
     pause();
 }
 
 async function deleteExecuteCommand() {
-    if (!checkWallet()) return;
     await showBanner();
+    const list = loadExecuteList();
+    if (!list.length) { console.log(chalk.yellow('\nNo saved commands.')); return pause(); }
     console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.cyan.bold('  🗑️  DELETE SAVED COMMAND'));
+    console.log(chalk.cyan.bold('  🗑️  DELETE COMMAND'));
     console.log(chalk.cyan('═'.repeat(50)));
-    if (!fs.existsSync('execute_commands.json')) {
-        console.log(chalk.gray('\nNo saved commands.'));
-        pause();
-        return;
-    }
-    let commands = [];
-    try { commands = JSON.parse(fs.readFileSync('execute_commands.json', 'utf8')); }
-    catch (e) {
-        console.log(chalk.red('\n✗ Error reading commands'));
-        pause();
-        return;
-    }
-    if (commands.length === 0) {
-        console.log(chalk.gray('\nNo saved commands.'));
-        pause();
-        return;
-    }
-    console.log(chalk.green(`\n✓ Saved commands:\n`));
-    commands.forEach((cmd, idx) => { console.log(chalk.cyan(`[${idx + 1}] ${cmd.name}`)); });
-    const choice = readline.question(chalk.yellow('\nDelete which? (number or 0 to cancel): '));
+    list.forEach((cmd, i) => console.log(chalk.white(`${i + 1}. ${cmd.name}`)));
+    const choice = readline.question(chalk.yellow('\nDelete command #: '));
     const idx = parseInt(choice) - 1;
-    if (idx >= 0 && idx < commands.length) {
-        const confirm = readline.question(chalk.red('Confirm delete? (yes/no): '));
-        if (confirm.toLowerCase() === 'yes') {
-            commands.splice(idx, 1);
-            fs.writeFileSync('execute_commands.json', JSON.stringify(commands, null, 2));
-            console.log(chalk.green('\n✓ Deleted!'));
-        }
-    }
+    if (idx < 0 || idx >= list.length) { console.log(chalk.red('\n✗ Invalid!')); return pause(); }
+    list.splice(idx, 1);
+    saveExecuteList(list);
+    console.log(chalk.green('\n✓ Deleted!'));
     pause();
 }
 
 async function stakeTokens() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  💎 STAKE TOKENS'));
-    console.log(chalk.gray(`  Contract by: ${CONFIG.DEV_CONTRACT_AUTHOR}`));
     console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.white(`\nStake Token: ${CONFIG.STAKE_TOKEN}`));
-    console.log(chalk.white(`Stake Contract: ${CONFIG.STAKE_CONTRACT}`));
     const amount = readline.question(chalk.yellow('\nAmount to stake: '));
-    const confirm = readline.question(chalk.yellow(`Stake ${amount}? (yes/no): `));
-    if (confirm.toLowerCase() !== 'yes') return;
+    const msg = { send: { contract: CONFIG.STAKE_CONTRACT, amount, msg: btoa(JSON.stringify({ stake: {} })) } };
+    console.log(chalk.yellow('\n⏳ Staking...'));
     try {
-        console.log(chalk.yellow('⏳ Staking...'));
-        const stakeMsg = Buffer.from(JSON.stringify({ stake: {} })).toString('base64');
-        const execMsg = { send: { contract: CONFIG.STAKE_CONTRACT, amount: toMicro(amount), msg: stakeMsg } };
-        const result = await wasmClient.execute(address, CONFIG.STAKE_TOKEN, execMsg, { amount: coins('30000', CONFIG.DENOM), gas: '1500000' });
+        const result = await wasmClient.execute(address, CONFIG.STAKE_TOKEN, msg, 'auto');
         console.log(chalk.green('\n✓ Staked!'));
-        console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+        console.log(chalk.white(`TxHash: ${result.transactionHash}`));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
+    }
     pause();
 }
 
 async function unstakeTokens() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
-
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  🔓 UNSTAKE TOKENS'));
-    console.log(chalk.gray(`  Contract by: ${CONFIG.DEV_CONTRACT_AUTHOR}`));
     console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.white(`\nStake Contract: ${CONFIG.STAKE_CONTRACT}`));
-
     const amount = readline.question(chalk.yellow('\nAmount to unstake: '));
-    const confirm = readline.question(
-        chalk.yellow(`Unstake ${amount}? (yes/no): `)
-    );
-    if (confirm.toLowerCase() !== 'yes') return;
-
+    const msg = { unstake: { amount } };
+    console.log(chalk.yellow('\n⏳ Unstaking...'));
     try {
-        console.log(chalk.yellow('⏳ Unstaking...'));
-
-        const execMsg = {
-            unstake: {
-                amount: toMicro(amount)
-            }
-        };
-
-        const fee = {
-            amount: coins('75000', CONFIG.DENOM),
-            gas: '700000'
-        };
-
-        const result = await wasmClient.execute(
-            address,
-            CONFIG.STAKE_CONTRACT,
-            execMsg,
-            fee
-        );
-
+        const result = await wasmClient.execute(address, CONFIG.STAKE_CONTRACT, msg, 'auto');
         console.log(chalk.green('\n✓ Unstaked!'));
-        console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-    } catch (e) {
-        console.log(chalk.red(`\n✗ Error: ${e.message}`));
+        console.log(chalk.white(`TxHash: ${result.transactionHash}`));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
     }
-
     pause();
 }
 
 async function claimStakingRewards() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
-
     console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.cyan.bold('  💰 CLAIM STAKING REWARDS'));
+    console.log(chalk.cyan.bold('  💰 CLAIM REWARDS'));
     console.log(chalk.cyan('═'.repeat(50)));
-
+    const msg = { claim_rewards: {} };
+    console.log(chalk.yellow('\n⏳ Claiming...'));
     try {
-        console.log(chalk.yellow('⏳ Claiming rewards...'));
-
-        const execMsg = {
-            claim: {}
-        };
-
-        const fee = {
-            amount: coins('75000', CONFIG.DENOM),
-            gas: '500000'
-        };
-
-        const result = await wasmClient.execute(
-            address,
-            CONFIG.STAKE_CONTRACT,
-            execMsg,
-            fee
-        );
-
-        console.log(chalk.green('\n✓ Rewards claimed!'));
-        console.log(chalk.white(`Tx Hash: ${result.transactionHash}`));
-    } catch (e) {
-        console.log(chalk.red(`\n✗ Error: ${e.message}`));
+        const result = await wasmClient.execute(address, CONFIG.STAKE_CONTRACT, msg, 'auto');
+        console.log(chalk.green('\n✓ Claimed!'));
+        console.log(chalk.white(`TxHash: ${result.transactionHash}`));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
     }
-
     pause();
 }
 
 async function viewStakingInfo() {
-    if (!checkWallet()) return;
+    if (!wallet) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     await showBanner();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  📊 STAKING INFO'));
     console.log(chalk.cyan('═'.repeat(50)));
+    const query = { staker_info: { staker: address } };
     try {
-        console.log(chalk.yellow('⏳ Fetching info...'));
-        const stakeInfo = await wasmClient.queryContractSmart(CONFIG.STAKE_CONTRACT, { staker_info: { staker: address } });
-        console.log(chalk.green('\n✓ Your Staking Info:'));
-        console.log(chalk.white(`Staked: ${toHuman(stakeInfo.amount || '0')}`));
-        console.log(chalk.white(`Rewards: ${toHuman(stakeInfo.pending_rewards || '0')}`));
-        const poolInfo = await wasmClient.queryContractSmart(CONFIG.STAKE_CONTRACT, { pool_info: {} });
-        console.log(chalk.gray('\nPool Info:'));
-        console.log(chalk.gray(`Total Staked: ${toHuman(poolInfo.total_staked || '0')}`));
-        console.log(chalk.gray(`APR: ${poolInfo.apr || 'N/A'}%`));
-    } catch (e) { console.log(chalk.red(`\n✗ Error: ${e.message}`)); }
+        const result = await wasmClient.queryContractSmart(CONFIG.STAKE_CONTRACT, query);
+        console.log(chalk.green('\n✓ Info:'));
+        console.log(chalk.white(JSON.stringify(result, null, 2)));
+    } catch (error) {
+        console.log(chalk.red(`\n✗ Failed: ${error.message}`));
+    }
     pause();
 }
 
@@ -824,39 +657,25 @@ function showDevInfo() {
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  👨‍💻 DEVELOPER INFO'));
     console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.green('\n📦 DApp Information:'));
-    console.log(chalk.white(`Version: ${CONFIG.VERSION}`));
-    console.log(chalk.white(`Dev Team: ${CONFIG.DEV_TEAM}`));
-    console.log(chalk.green('\n🔧 Smart Contracts:'));
-    console.log(chalk.white(`PRC-20 Code ID: ${CONFIG.PRC20_CODE_ID}`));
-    console.log(chalk.white(`Contract Developer: ${CONFIG.DEV_CONTRACT_AUTHOR}`));
-    console.log(chalk.green('\n💎 Staking Contracts:'));
-    console.log(chalk.white(`Stake Token: ${CONFIG.STAKE_TOKEN}`));
-    console.log(chalk.white(`Stake Contract: ${CONFIG.STAKE_CONTRACT}`));
-    console.log(chalk.gray(`Developer: ${CONFIG.DEV_CONTRACT_AUTHOR}`));
-    console.log(chalk.green('\n🌐 Network:'));
-    console.log(chalk.white(`Chain ID: ${CONFIG.CHAIN_ID}`));
-    console.log(chalk.white(`RPC: ${CONFIG.RPC}`));
-    console.log(chalk.white(`LCD: ${CONFIG.LCD}`));
-    console.log(chalk.green('\n📞 Support:'));
-    console.log(chalk.white(`Discord: https://discord.gg/rA9Xzs69tx`));
-    console.log(chalk.white(`Telegram: https://t.me/paxi_network`));
+    console.log(chalk.white('\nDev Team: ' + CONFIG.DEV_TEAM));
+    console.log(chalk.white('Contract Author: ' + CONFIG.DEV_CONTRACT_AUTHOR));
+    console.log(chalk.white('Version: ' + CONFIG.VERSION));
+    console.log(chalk.white('\nSupport:'));
+    console.log(chalk.gray('  Discord: https://discord.gg/rA9Xzs69tx'));
+    console.log(chalk.gray('  Telegram: https://t.me/paxi_network'));
+    console.log(chalk.gray('  GitHub: https://github.com/einrika/dapps-cli-all-in-one'));
     pause();
 }
 
 function exportWallet() {
-    if (!checkWallet()) return;
+    if (!mnemonic) { console.log(chalk.red('\n✗ No wallet!')); return pause(); }
     clearScreen();
     console.log(chalk.cyan('═'.repeat(50)));
     console.log(chalk.cyan.bold('  💾 EXPORT WALLET'));
     console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.red.bold('\n⚠️  This shows your mnemonic!'));
-    const confirm = readline.question(chalk.yellow('Continue? (yes/no): '));
-    if (confirm.toLowerCase() === 'yes') {
-        console.log(chalk.white('\nMnemonic:'));
-        console.log(chalk.green.bold(mnemonic));
-        console.log(chalk.red('\nNEVER share!'));
-    }
+    console.log(chalk.yellow('\n⚠️  Your 24-word mnemonic:'));
+    console.log(chalk.red(mnemonic));
+    console.log(chalk.red('\nNEVER share!'));
     pause();
 }
 
@@ -950,7 +769,6 @@ pause_and_clean
 
 # [6/7] Shortcuts
 echo -e "${CYAN}[6/7]${NC} ${BLUE}Creating shortcuts...${NC}"
-clean_screen
 
 cat > paxidev << 'SHORTCUTEOF'
 #!/bin/bash
@@ -1030,7 +848,6 @@ pause_and_clean
 
 # [7/7] Docs
 echo -e "${CYAN}[7/7]${NC} ${BLUE}Creating docs...${NC}"
-clean_screen
 
 cat > README.md << 'READMEEOF'
 # 🚀 PAXIHUB CREATE TOKEN PRC20 v2.0.4
