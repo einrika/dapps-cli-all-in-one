@@ -184,7 +184,11 @@ cat > package.json << 'PKGJSON'
 PKGJSON
 
 echo -e "${YELLOW}Installing packages...${NC}"
-npm install --no-audit --no-fund > /dev/null 2>&1 || true
+npm install --no-audit --no-fund
+if [ $? -ne 0 ]; then
+    echo -e "${RED}✗ npm install gagal. Hentikan installer.${NC}"
+    exit 1
+fi
 show_progress 4
 echo -e "${GREEN}✓ All packages installed${NC}\n"
 pause_and_clean
