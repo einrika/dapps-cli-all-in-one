@@ -5,7 +5,7 @@
 # Version 2.0.4 - FULL (Upload + Stake + Execute List + Auto-Update)
 # ================================================================
 
-set -Eeuo pipefail
+set -e
 
 VERSION="2.0.4"
 
