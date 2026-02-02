@@ -103,7 +103,7 @@ paxi-update
 
 ### Menjalankan dapps script
 ```
-paxi
+paxidev
 ```
 
 ---
