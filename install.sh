@@ -5,7 +5,7 @@
 # Version 2.0.4 - FULL (Upload + Stake + Execute List + Auto-Update)
 # ================================================================
 
-set -e
+set -Eeuo pipefail
 
 VERSION="2.0.4"
 
@@ -82,13 +82,35 @@ echo -e "${CYAN}🚀 Starting installation...${NC}"
 echo ""
 
 # [1/7] System Update
+# [1/7] System Update (robust + timeout + skip)
+
 echo -e "${CYAN}[1/7]${NC} ${BLUE}Updating system...${NC}"
 clean_screen
 echo -e "${CYAN}[1/7]${NC} ${BLUE}Updating system...${NC}"
-pkg update -y > /dev/null 2>&1 || true
-pkg upgrade -y > /dev/null 2>&1 || true
-show_progress 1
-echo -e "${GREEN}✓ System updated${NC}\n"
+
+UPDATE_FLAG="$HOME/.paxihub_last_update"
+NOW_TS=$(date +%s)
+MAX_AGE=86400 # 24 jam
+
+if [ -f "$UPDATE_FLAG" ] && [ $((NOW_TS - $(cat "$UPDATE_FLAG" 2>/dev/null || echo 0))) -lt $MAX_AGE ]; then
+    echo -e "${GREEN}✓ System already updated recently, skipped${NC}"
+    show_progress 1
+else
+    echo -e "${YELLOW}⏳ Running system update...${NC}"
+
+    timeout 120 pkg update -y >/dev/null 2>&1 \
+        || echo -e "${YELLOW}⚠ pkg update skipped (timeout/fail)${NC}"
+
+    timeout 180 pkg upgrade -y >/dev/null 2>&1 \
+        || echo -e "${YELLOW}⚠ pkg upgrade skipped (timeout/fail)${NC}"
+
+    date +%s > "$UPDATE_FLAG"
+
+    show_progress 1
+    echo -e "${GREEN}✓ System update finished${NC}"
+fi
+
+echo ""
 
 # [2/7] Dependencies
 echo -e "${CYAN}[2/7]${NC} ${BLUE}Smart dependency check...${NC}"
