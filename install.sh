@@ -108,28 +108,93 @@ fi
 
 echo ""
 
-# [2/7] Dependencies
+# [2/7] Dependencies (SELALU CEK - TIDAK BOLEH SKIP!)
 clean_screen
-echo -e "${CYAN}[2/7]${NC} ${BLUE}Smart dependency check...${NC}"
+echo -e "${CYAN}[2/7]${NC} ${BLUE}Checking dependencies...${NC}"
 
 DEPS_TO_INSTALL=""
-if ! check_installed node; then DEPS_TO_INSTALL="$DEPS_TO_INSTALL nodejs"; fi
-if ! check_installed git; then DEPS_TO_INSTALL="$DEPS_TO_INSTALL git"; fi
-if ! check_installed wget; then DEPS_TO_INSTALL="$DEPS_TO_INSTALL wget"; fi
-if ! check_installed curl; then DEPS_TO_INSTALL="$DEPS_TO_INSTALL curl"; fi
-if ! check_installed bc; then DEPS_TO_INSTALL="$DEPS_TO_INSTALL bc"; fi
+MISSING_DEPS=""
 
+# Check semua dependencies
+if ! check_installed node; then 
+    DEPS_TO_INSTALL="$DEPS_TO_INSTALL nodejs-lts"
+    MISSING_DEPS="$MISSING_DEPS nodejs"
+fi
+if ! check_installed git; then 
+    DEPS_TO_INSTALL="$DEPS_TO_INSTALL git"
+    MISSING_DEPS="$MISSING_DEPS git"
+fi
+if ! check_installed wget; then 
+    DEPS_TO_INSTALL="$DEPS_TO_INSTALL wget"
+    MISSING_DEPS="$MISSING_DEPS wget"
+fi
+if ! check_installed curl; then 
+    DEPS_TO_INSTALL="$DEPS_TO_INSTALL curl"
+    MISSING_DEPS="$MISSING_DEPS curl"
+fi
+if ! check_installed bc; then 
+    DEPS_TO_INSTALL="$DEPS_TO_INSTALL bc"
+    MISSING_DEPS="$MISSING_DEPS bc"
+fi
+
+# Install dependencies yang missing
 if [ -n "$DEPS_TO_INSTALL" ]; then
-    echo -e "${YELLOW}Installing:$DEPS_TO_INSTALL${NC}"
-    pkg install -y $DEPS_TO_INSTALL > /dev/null 2>&1 || true
+    echo -e "${YELLOW}📦 Missing:$MISSING_DEPS${NC}"
+    echo -e "${YELLOW}⏳ Installing packages...${NC}"
+    
+    # Update repo dulu
+    pkg update -y >/dev/null 2>&1 || true
+    
+    # Install packages
+    echo -e "${CYAN}Installing:$DEPS_TO_INSTALL${NC}"
+    pkg install -y $DEPS_TO_INSTALL
+    
+    if [ $? -ne 0 ]; then
+        echo -e "${YELLOW}⚠ Trying one by one...${NC}"
+        for dep in $DEPS_TO_INSTALL; do
+            echo -e "  - $dep"
+            pkg install -y $dep 2>/dev/null || true
+        done
+    fi
+    
     show_progress 3
+    echo -e "${GREEN}✓ Installation completed${NC}"
 else
-    echo -e "${GREEN}✓ All dependencies installed${NC}"
+    echo -e "${GREEN}✓ All dependencies OK${NC}"
     show_progress 1
 fi
 
-NODE_VER=$(node --version 2>/dev/null || echo "node-not-found")
-echo -e "${GREEN}✓ Node.js ${NODE_VER} ready${NC}\n"
+echo ""
+
+# VALIDASI CRITICAL: Node.js dan npm WAJIB ada
+echo -e "${CYAN}Validating Node.js & npm...${NC}"
+
+if ! check_installed node; then
+    echo -e "${YELLOW}Node.js not found, installing...${NC}"
+    pkg install -y nodejs >/dev/null 2>&1
+    
+    if ! check_installed node; then
+        echo -e "${RED}✗ FATAL: Cannot install Node.js!${NC}"
+        echo -e "${WHITE}Fix: pkg install nodejs${NC}"
+        exit 1
+    fi
+fi
+
+if ! check_installed npm; then
+    echo -e "${YELLOW}npm not found, installing...${NC}"
+    pkg install -y npm >/dev/null 2>&1
+    
+    if ! check_installed npm; then
+        echo -e "${RED}✗ FATAL: npm not available!${NC}"
+        echo -e "${WHITE}Fix: pkg install nodejs${NC}"
+        exit 1
+    fi
+fi
+
+NODE_VER=$(node --version 2>/dev/null)
+NPM_VER=$(npm --version 2>/dev/null)
+echo -e "${GREEN}✓ Node.js ${NODE_VER}${NC}"
+echo -e "${GREEN}✓ npm ${NPM_VER}${NC}\n"
 pause_and_clean
 
 # [3/7] Create Project
