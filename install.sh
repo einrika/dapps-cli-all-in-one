@@ -81,6 +81,22 @@ echo ""
 echo -e "${CYAN}🚀 Starting installation...${NC}"
 echo ""
 
+# [0/7] Fix dpkg if interrupted
+echo -e "${CYAN}[0/7]${NC} ${BLUE}Checking system integrity...${NC}"
+if dpkg --audit 2>&1 | grep -q "not fully installed"; then
+    echo -e "${YELLOW}⚠ Fixing interrupted dpkg...${NC}"
+    dpkg --configure -a 2>/dev/null || true
+    echo -e "${GREEN}✓ dpkg fixed${NC}"
+elif ! dpkg --audit >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ Repairing package system...${NC}"
+    dpkg --configure -a 2>/dev/null || true
+    apt --fix-broken install -y 2>/dev/null || true
+    echo -e "${GREEN}✓ System repaired${NC}"
+else
+    echo -e "${GREEN}✓ System OK${NC}"
+fi
+echo ""
+
 # [1/7] System Update
 echo -e "${CYAN}[1/7]${NC} ${BLUE}Updating system...${NC}"
 
@@ -170,9 +186,14 @@ echo -e "${CYAN}Validating Node.js & npm...${NC}"
 
 if ! check_installed node; then
     echo -e "${YELLOW}Node.js not found, installing...${NC}"
+    
+    # Fix dpkg dulu jika perlu
+    dpkg --configure -a 2>/dev/null || true
+    
     if ! pkg install -y nodejs; then
         echo -e "${RED}✗ FATAL: Cannot install Node.js!${NC}"
         echo -e "${WHITE}Manual fix required:${NC}"
+        echo -e "${WHITE}  dpkg --configure -a${NC}"
         echo -e "${WHITE}  pkg update${NC}"
         echo -e "${WHITE}  pkg install nodejs${NC}"
         exit 1
@@ -187,24 +208,35 @@ fi
 if ! check_installed npm; then
     echo -e "${YELLOW}npm not found, installing...${NC}"
     
+    # Fix dpkg interrupted issue
+    echo -e "${CYAN}Checking dpkg integrity...${NC}"
+    if dpkg --configure -a 2>&1 | grep -q "interrupted"; then
+        echo -e "${YELLOW}⚠ Fixing dpkg...${NC}"
+        dpkg --configure -a
+    fi
+    
     # Try npm package first
-    if pkg install -y npm 2>&1 | grep -q "Unable to locate package"; then
-        echo -e "${YELLOW}npm package not found, reinstalling nodejs...${NC}"
+    echo -e "${CYAN}Attempting npm installation...${NC}"
+    if ! pkg install -y npm 2>&1; then
+        echo -e "${YELLOW}Direct npm install failed, trying alternative...${NC}"
+        
+        # Alternative: reinstall nodejs (includes npm)
+        echo -e "${CYAN}Reinstalling nodejs...${NC}"
         pkg uninstall nodejs -y 2>/dev/null || true
+        dpkg --configure -a 2>/dev/null || true
         pkg install -y nodejs
-    else
-        pkg install -y npm
     fi
     
     # Final check
     if ! check_installed npm; then
         echo -e "${RED}✗✗ CRITICAL ERROR: npm not available!${NC}"
         echo -e "${YELLOW}═════════════════════════════════════════${NC}"
-        echo -e "${WHITE}Possible solutions:${NC}"
-        echo -e "${WHITE}1. pkg uninstall nodejs${NC}"
-        echo -e "${WHITE}2. pkg update${NC}"
-        echo -e "${WHITE}3. pkg install nodejs${NC}"
-        echo -e "${WHITE}4. node --version && npm --version${NC}"
+        echo -e "${RED}dpkg might be corrupted. Manual fix:${NC}"
+        echo -e "${WHITE}1. dpkg --configure -a${NC}"
+        echo -e "${WHITE}2. apt --fix-broken install -y${NC}"
+        echo -e "${WHITE}3. pkg update${NC}"
+        echo -e "${WHITE}4. pkg install nodejs${NC}"
+        echo -e "${WHITE}5. node --version && npm --version${NC}"
         echo -e "${YELLOW}═════════════════════════════════════════${NC}"
         exit 1
     fi
