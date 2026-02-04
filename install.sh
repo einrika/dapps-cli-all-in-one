@@ -2,12 +2,12 @@
 
 # ================================================================
 # PAXIHUB CREATE TOKEN PRC20 - DUAL MODE FULL IMPLEMENTATION
-# Version 3.1.1 - Fixed Hang Issues
+# Version 3.1.2 - Fixed Double UI Issue
 # ================================================================
 
 set -e
 
-VERSION="3.1.1"
+VERSION="3.1.2"
 
 # Colors
 RED='\033[0;31m'
@@ -48,7 +48,7 @@ cat << "EOF"
 ==================================================
  PAXIHUB CREATE TOKEN PRC20 - DUAL MODE
 --------------------------------------------------
- Version : 3.1.1  
+ Version : 3.1.2  
  Networks: Testnet + Mainnet (Full Logic)
  Features: Token + Staking + Contracts + History
  Dev     : PaxiHub Team
@@ -110,11 +110,9 @@ if [ -f "$UPDATE_FLAG" ] && [ $((NOW_TS - $(cat "$UPDATE_FLAG" 2>/dev/null || ec
 else
     echo -e "${YELLOW}⏳ Running pkg update (max 60s)...${NC}"
     
-    # Visible output with timeout
     (timeout 60 pkg update -y 2>&1 || echo "TIMEOUT") &
     UPDATE_PID=$!
     
-    # Show spinner while updating
     SPIN='-\|/'
     i=0
     while kill -0 $UPDATE_PID 2>/dev/null; do
@@ -127,11 +125,9 @@ else
     
     echo -e "${YELLOW}⏳ Running pkg upgrade (max 90s)...${NC}"
     
-    # Visible output with timeout
     (timeout 90 pkg upgrade -y 2>&1 || echo "TIMEOUT") &
     UPGRADE_PID=$!
     
-    # Show spinner while upgrading
     i=0
     while kill -0 $UPGRADE_PID 2>/dev/null; do
         i=$(( (i+1) %4 ))
@@ -265,7 +261,7 @@ echo -e "${CYAN}[4/7]${NC} ${BLUE}Installing npm packages...${NC}"
 cat > package.json << 'PKGJSON'
 {
   "name": "paxi-dapp",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "PaxiHub DApp Full Implementation",
   "main": "dapp.js",
   "scripts": {
@@ -292,7 +288,6 @@ PKGJSON
 echo -e "${YELLOW}⏳ Running npm install (this may take a while)...${NC}"
 echo -e "${GRAY}Progress will be shown below:${NC}\n"
 
-# Visible npm install
 npm install 2>&1 | grep -E "added|updated|removed|warn|error" || true
 
 echo ""
@@ -350,7 +345,7 @@ let CONFIG = {
     chainId: null,
     DEV_CONTRACT_AUTHOR: 'Seven',
     STAKING_CONTRACT: null,
-    VERSION: '3.1.1'
+    VERSION: '3.1.2'
 };
 
 function loadConfig() {
@@ -493,7 +488,7 @@ async function showBanner() {
     }
     
     console.log(chalk.cyan.bold('╔════════════════════════════════════════╗'));
-    console.log(chalk.cyan.bold('║  PAXIHUB DAPP - FULL LOGIC v3.1.1     ║'));
+    console.log(chalk.cyan.bold('║  PAXIHUB DAPP - FULL LOGIC v3.1.2     ║'));
     console.log(chalk.cyan.bold('╚════════════════════════════════════════╝'));
     console.log(netColor(`  Network: ${net.name.toUpperCase()}`));
     console.log(chalk.gray(`  Chain ID: ${CONFIG.chainId || 'Loading...'}`));
@@ -522,6 +517,12 @@ async function getBalance(address) {
     } catch (e) {
         throw new Error(`Failed to get balance: ${e.message}`);
     }
+}
+
+// FIXED: pause() now clears screen
+function pause() {
+    readline.question(chalk.gray('\nTekan Enter untuk kembali...'));
+    console.clear();
 }
 
 async function generateWallet() {
@@ -1051,7 +1052,10 @@ async function listExecuteCommands() {
     });
     
     const choice = readline.question(chalk.yellow('\nRun command (number or 0 to cancel): '));
-    if (choice === '0') return;
+    if (choice === '0') {
+        pause();
+        return;
+    }
     
     const idx = parseInt(choice) - 1;
     if (idx >= 0 && idx < cmds.length) {
@@ -1096,7 +1100,10 @@ async function deleteExecuteCommand() {
         console.log(chalk.white(`${i + 1}. ${cmd.name}`));
     });
     const choice = readline.question(chalk.yellow('\nDelete which? (0 to cancel): '));
-    if (choice === '0') return;
+    if (choice === '0') {
+        pause();
+        return;
+    }
     const idx = parseInt(choice) - 1;
     if (idx >= 0 && idx < filtered.length) {
         const toDelete = filtered[idx];
@@ -1362,11 +1369,9 @@ async function settings() {
         pause();
     } else if (choice === '6') {
         logoutWallet();
+    } else {
+        pause();
     }
-}
-
-function pause() {
-    readline.question(chalk.gray('\nTekan Enter untuk kembali...'));
 }
 
 async function mainMenuLoop() {
@@ -1469,7 +1474,7 @@ DAPPEOF
 chmod +x dapp.js
 echo "$VERSION" > .version
 show_progress 1
-echo -e "${GREEN}✓ DApp v$VERSION created (Full Logic)${NC}\n"
+echo -e "${GREEN}✓ DApp v$VERSION created${NC}\n"
 pause_and_clean
 
 # [6/7] Shortcuts
@@ -1556,37 +1561,39 @@ pause_and_clean
 echo -e "${CYAN}[7/7]${NC} ${BLUE}Creating docs...${NC}"
 
 cat > README.md << 'READMEEOF'
-# 🚀 PAXIHUB CREATE TOKEN PRC20 v3.1.1
+# 🚀 PAXIHUB CREATE TOKEN PRC20 v3.1.2
 
-## FULL IMPLEMENTATION - Fixed Hang Issues
+## FULL IMPLEMENTATION - Fixed Double UI Bug
 
 ## Quick Start
 ```bash
 paxidev
 ```
 
+## Fixed in v3.1.2
+- ✅ **No more double UI** - Screen clears after every action
+- ✅ All functions call `pause()` which includes `console.clear()`
+- ✅ Clean navigation between menus
+
 ## Features
 - ✅ **DUAL MODE**: Testnet + Mainnet switching
-- ✅ **Auto ChainID**: Fetches from RPC /status endpoint
-- ✅ **Persistent Wallet**: Stays logged in until manual logout
-- ✅ **Full CosmJS Integration**: SigningStargateClient + SigningCosmWasmClient
-- ✅ **Real Transactions**: Send PAXI with actual blockchain broadcasts
-- ✅ **Contract Management**: Upload, instantiate, execute, query
-- ✅ **PRC-20 Support**: Transfer tokens, check balances (CW20)
-- ✅ **Staking**: Full staking contract integration
-- ✅ **Transaction History**: Blockchain + local history
-- ✅ **Execute Commands**: Save and run contract executions
-- ✅ **Auto-Update**: Update from GitHub
+- ✅ **Auto ChainID**: Fetches from RPC /status
+- ✅ **Persistent Wallet**: Until manual logout
+- ✅ **Full CosmJS**: Real blockchain transactions
+- ✅ **Contract Management**: Upload/Instantiate/Execute/Query
+- ✅ **PRC-20 Support**: CW20 tokens
+- ✅ **Staking**: Full integration
+- ✅ **Transaction History**: Blockchain + local
+- ✅ **Execute Commands**: Save & run
 
-## Fixed in v3.1.1
-- ✅ No more hanging on pkg update/upgrade
-- ✅ Visible progress with spinner
-- ✅ Shorter timeouts (60s update, 90s upgrade)
-- ✅ Better error handling
+## Auto-Update
+```bash
+paxidev-update
+```
 
 ## Developer Info
 - Team: PaxiHub Team
-- Version: 3.1.1
+- Version: 3.1.2
 - GitHub: github.com/einrika/dapps-cli-all-in-one
 
 ## Support
@@ -1602,22 +1609,20 @@ pause_and_clean
 clean_screen
 cat << "EOF"
 ╔════════════════════════════════════════════════╗
-║  ✅  INSTALLATION COMPLETE v3.1.1              ║
-║     FULL IMPLEMENTATION - HANG FIXED           ║
+║  ✅  INSTALLATION COMPLETE v3.1.2              ║
+║     FIXED: No More Double UI!                  ║
 ╚════════════════════════════════════════════════╝
 
 📦 Location: ~/paxi-dapp
 🚀 Launch: paxidev
 🔄 Update: paxidev-update
 
-✨ IMPROVEMENTS:
-  ✓ No more hanging on pkg update
-  ✓ Visible progress with spinner
-  ✓ Shorter timeouts (faster install)
+✨ FIXED ISSUES:
+  ✓ No more double UI (screen clears after actions)
+  ✓ pause() function includes console.clear()
+  ✓ Clean menu navigation
   ✓ Full logic implementation
-
-🔄 NETWORK SWITCHING:
-  Switch anytime via Settings → Switch Network
+  ✓ No hang on pkg update
 
 👨‍💻 Dev Team: PaxiHub Team
 
