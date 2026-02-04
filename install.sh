@@ -935,11 +935,114 @@ async function queryContract() {
 }
 
 async function createPRC20() {
+    const wallet = loadWallet();
+    if (!wallet) {
+        console.log(chalk.red('\n✗ No wallet loaded!'));
+        pause();
+        return;
+    }
+    
     console.log(chalk.cyan('\n🪙 Create PRC-20 Token\n'));
-    console.log(chalk.yellow('This requires a CW20 contract to be uploaded and instantiated.'));
-    console.log(chalk.gray('You can upload a CW20 WASM file via menu option 9, then instantiate it via option 10.'));
-    console.log(chalk.gray('\nExample init message for CW20:'));
-    console.log(chalk.white('{"name":"MyToken","symbol":"MTK","decimals":6,"initial_balances":[{"address":"paxi1...","amount":"1000000000"}]}'));
+    console.log(chalk.gray('Using Code ID 1 (PRC-20 Standard)\n'));
+    
+    const name = readline.question(chalk.white('Token Name: '));
+    const symbol = readline.question(chalk.white('Token Symbol: '));
+    const decimals = parseInt(readline.question(chalk.white('Decimals (default 6): ')) || '6');
+    const initialSupply = readline.question(chalk.white('Initial Supply: '));
+    const label = readline.question(chalk.white('Label: ')) || symbol;
+    
+    console.log(chalk.yellow('\n📢 Marketing Info (optional, press Enter to skip):\n'));
+    const project = readline.question(chalk.white('Project Name: '));
+    const description = readline.question(chalk.white('Description: '));
+    const marketing = readline.question(chalk.white('Marketing Address (empty = your address): ')) || wallet.address;
+    const logoUrl = readline.question(chalk.white('Logo URL (IPFS/HTTP): '));
+    
+    const initMsg = {
+        name: name,
+        symbol: symbol,
+        decimals: decimals,
+        initial_balances: [
+            {
+                address: wallet.address,
+                amount: initialSupply
+            }
+        ],
+        mint: {
+            minter: wallet.address
+        }
+    };
+    
+    if (project || description || logoUrl) {
+        initMsg.marketing = {
+            project: project || `${name} Project`,
+            description: description || `This is ${name} token`,
+            marketing: marketing
+        };
+        
+        if (logoUrl) {
+            initMsg.marketing.logo = {
+                url: logoUrl
+            };
+        }
+    }
+    
+    console.log(chalk.yellow('\n⏳ Creating PRC-20 token...\n'));
+    console.log(chalk.gray('Init Message:'));
+    console.log(chalk.gray(JSON.stringify(initMsg, null, 2)));
+    
+    try {
+        const { client } = await getSigningCosmWasmClient();
+        const codeId = 1; // PRC-20 Standard
+        
+        const result = await client.instantiate(
+            wallet.address,
+            codeId,
+            initMsg,
+            label,
+            'auto',
+            { admin: undefined }
+        );
+        
+        const contractAddress = result.logs[0].events
+            .find(e => e.type === 'instantiate')
+            ?.attributes.find(a => a.key === '_contract_address')
+            ?.value || result.contractAddress;
+        
+        console.log(chalk.green('\n✓ PRC-20 Token created successfully!'));
+        console.log(chalk.yellow('\n📋 Token Details:'));
+        console.log(chalk.white(`  Name: ${name}`));
+        console.log(chalk.white(`  Symbol: ${symbol}`));
+        console.log(chalk.white(`  Decimals: ${decimals}`));
+        console.log(chalk.white(`  Supply: ${initialSupply}`));
+        console.log(chalk.green(`  Contract: ${contractAddress}`));
+        console.log(chalk.gray(`  TX Hash: ${result.transactionHash}`));
+        console.log(chalk.gray(`  Height: ${result.height}`));
+        console.log(chalk.gray(`  Gas Used: ${result.gasUsed}`));
+        
+        const contracts = loadContracts();
+        if (!contracts[CONFIG.network]) contracts[CONFIG.network] = {};
+        if (!contracts[CONFIG.network].prc20) contracts[CONFIG.network].prc20 = [];
+        contracts[CONFIG.network].prc20.push({
+            name: name,
+            symbol: symbol,
+            address: contractAddress,
+            txHash: result.transactionHash,
+            timestamp: new Date().toISOString()
+        });
+        saveContracts(contracts);
+        
+        saveHistory({
+            type: 'Create PRC-20',
+            token: `${name} (${symbol})`,
+            contract: contractAddress,
+            txHash: result.transactionHash,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (e) {
+        console.log(chalk.red(`\n✗ Token creation failed: ${e.message}`));
+    }
+    
     pause();
 }
 
@@ -1378,6 +1481,7 @@ async function mainMenuLoop() {
     loadConfig();
     
     while (true) {
+        console.clear();
         await showBanner();
         const net = getCurrentNetwork();
         
