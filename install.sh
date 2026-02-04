@@ -363,6 +363,12 @@ const EXECUTE_COMMANDS_FILE = 'execute_commands.json';
 // UTILITY FUNCTIONS
 // ================================================================
 
+function clearScreen() {
+    // Menggunakan escape sequence yang lebih reliable untuk Termux
+    // \x1Bc = reset terminal (ESC c)
+    process.stdout.write('\x1Bc');
+}
+
 function loadConfig() {
     if (fs.existsSync(CONFIG_FILE)) {
         try {
@@ -508,7 +514,7 @@ async function getSigningCosmWasmClient() {
 }
 
 async function showBanner() {
-    console.clear();
+    // Don't clear here, let mainMenuLoop handle it
     const net = getCurrentNetwork();
     const netColor = net.color;
     
@@ -550,7 +556,7 @@ async function getBalance(address) {
 
 function pause() {
     readline.question(chalk.gray('\nTekan Enter untuk kembali...'));
-    console.clear();
+    clearScreen();
 }
 
 // ================================================================
@@ -1705,7 +1711,7 @@ async function mainMenuLoop() {
     loadConfig();
     
     while (true) {
-        console.clear();
+        clearScreen();
         await showBanner();
         const net = getCurrentNetwork();
         
@@ -1913,6 +1919,11 @@ cat > README.md << 'READMEEOF'
 ```bash
 paxidev
 ```
+
+## UI Fix v3.2.0
+- ✅ **No Double Screen**: Menggunakan escape sequence `\x1Bc` untuk Termux
+- ✅ **Clear Flow**: mainMenuLoop clear → pause clear → repeat
+- ✅ **Reliable**: Tidak ada menu yang overlap/menumpuk
 
 ## Features v3.2.0
 - ✅ **DUAL MODE**: Testnet + Mainnet switching
