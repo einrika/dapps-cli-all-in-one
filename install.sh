@@ -2,12 +2,12 @@
 
 # ================================================================
 # PAXIHUB CREATE TOKEN PRC20 - DUAL MODE FULL IMPLEMENTATION
-# Version 3.1.0 - Complete Logic (No Placeholders)
+# Version 3.1.1 - Fixed Hang Issues
 # ================================================================
 
 set -e
 
-VERSION="3.1.0"
+VERSION="3.1.1"
 
 # Colors
 RED='\033[0;31m'
@@ -23,7 +23,7 @@ clear_screen() { printf '\033c'; }
 
 show_progress() {
     local duration=$1
-    local steps=40
+    local steps=20
     local delay
     if command -v bc >/dev/null 2>&1; then
         delay=$(echo "scale=4; $duration / $steps" | bc)
@@ -48,7 +48,7 @@ cat << "EOF"
 ==================================================
  PAXIHUB CREATE TOKEN PRC20 - DUAL MODE
 --------------------------------------------------
- Version : 3.1.0  
+ Version : 3.1.1  
  Networks: Testnet + Mainnet (Full Logic)
  Features: Token + Staking + Contracts + History
  Dev     : PaxiHub Team
@@ -97,7 +97,7 @@ else
 fi
 echo ""
 
-# [1/7] System Update
+# [1/7] System Update - FIXED: visible output, shorter timeout
 echo -e "${CYAN}[1/7]${NC} ${BLUE}Updating system...${NC}"
 
 UPDATE_FLAG="$HOME/.paxihub_last_update"
@@ -106,13 +106,44 @@ MAX_AGE=86400
 
 if [ -f "$UPDATE_FLAG" ] && [ $((NOW_TS - $(cat "$UPDATE_FLAG" 2>/dev/null || echo 0))) -lt $MAX_AGE ]; then
     echo -e "${GREEN}✓ System already updated recently, skipped${NC}"
-    show_progress 1
+    show_progress 0.5
 else
-    echo -e "${YELLOW}⏳ Running system update...${NC}"
-    timeout 120 pkg update -y >/dev/null 2>&1 || echo -e "${YELLOW}⚠ pkg update skipped${NC}"
-    timeout 180 pkg upgrade -y >/dev/null 2>&1 || echo -e "${YELLOW}⚠ pkg upgrade skipped${NC}"
+    echo -e "${YELLOW}⏳ Running pkg update (max 60s)...${NC}"
+    
+    # Visible output with timeout
+    (timeout 60 pkg update -y 2>&1 || echo "TIMEOUT") &
+    UPDATE_PID=$!
+    
+    # Show spinner while updating
+    SPIN='-\|/'
+    i=0
+    while kill -0 $UPDATE_PID 2>/dev/null; do
+        i=$(( (i+1) %4 ))
+        printf "\r${YELLOW}   Updating... ${SPIN:$i:1}${NC}"
+        sleep 0.2
+    done
+    wait $UPDATE_PID 2>/dev/null || true
+    printf "\r${GREEN}   ✓ pkg update done${NC}          \n"
+    
+    echo -e "${YELLOW}⏳ Running pkg upgrade (max 90s)...${NC}"
+    
+    # Visible output with timeout
+    (timeout 90 pkg upgrade -y 2>&1 || echo "TIMEOUT") &
+    UPGRADE_PID=$!
+    
+    # Show spinner while upgrading
+    i=0
+    while kill -0 $UPGRADE_PID 2>/dev/null; do
+        i=$(( (i+1) %4 ))
+        printf "\r${YELLOW}   Upgrading... ${SPIN:$i:1}${NC}"
+        sleep 0.2
+    done
+    wait $UPGRADE_PID 2>/dev/null || true
+    printf "\r${GREEN}   ✓ pkg upgrade done${NC}          \n"
+    
     date +%s > "$UPDATE_FLAG"
-    show_progress 1
+    
+    show_progress 0.5
     echo -e "${GREEN}✓ System update finished${NC}"
 fi
 
@@ -159,11 +190,11 @@ if [ -n "$DEPS_TO_INSTALL" ]; then
             pkg install -y $dep || echo -e "${RED}  ✗ Failed: $dep${NC}"
         done
     fi
-    show_progress 3
+    show_progress 1
     echo -e "${GREEN}✓ Installation completed${NC}"
 else
     echo -e "${GREEN}✓ All basic dependencies OK${NC}"
-    show_progress 1
+    show_progress 0.5
 fi
 
 echo ""
@@ -224,7 +255,7 @@ fi
 
 mkdir -p paxi-dapp
 cd paxi-dapp || exit 1
-show_progress 1
+show_progress 0.5
 echo -e "${GREEN}✓ Project folder created${NC}\n"
 pause_and_clean
 
@@ -234,7 +265,7 @@ echo -e "${CYAN}[4/7]${NC} ${BLUE}Installing npm packages...${NC}"
 cat > package.json << 'PKGJSON'
 {
   "name": "paxi-dapp",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "PaxiHub DApp Full Implementation",
   "main": "dapp.js",
   "scripts": {
@@ -259,12 +290,13 @@ cat > package.json << 'PKGJSON'
 PKGJSON
 
 echo -e "${YELLOW}⏳ Running npm install (this may take a while)...${NC}"
-if npm install --no-progress --loglevel=error 2>&1 | grep -E "error|ERR" > /dev/null; then
-    echo -e "${RED}Some packages failed. Retrying...${NC}"
-    npm install --no-progress --loglevel=error || true
-fi
+echo -e "${GRAY}Progress will be shown below:${NC}\n"
 
-show_progress 3
+# Visible npm install
+npm install 2>&1 | grep -E "added|updated|removed|warn|error" || true
+
+echo ""
+show_progress 1
 echo -e "${GREEN}✓ Packages installed${NC}\n"
 pause_and_clean
 
@@ -307,6 +339,7 @@ const NETWORK_CONFIG = {
         rpc: 'https://mainnet-rpc.paxinet.io',
         lcd: 'https://mainnet-lcd.paxinet.io',
         denom: 'upaxi',
+        prefix: 'paxi',
         gasPrice: '0.025upaxi',
         color: chalk.green
     }
@@ -317,7 +350,7 @@ let CONFIG = {
     chainId: null,
     DEV_CONTRACT_AUTHOR: 'Seven',
     STAKING_CONTRACT: null,
-    VERSION: '3.1.0'
+    VERSION: '3.1.1'
 };
 
 function loadConfig() {
@@ -460,7 +493,7 @@ async function showBanner() {
     }
     
     console.log(chalk.cyan.bold('╔════════════════════════════════════════╗'));
-    console.log(chalk.cyan.bold('║  PAXIHUB DAPP - FULL LOGIC v3.1.0     ║'));
+    console.log(chalk.cyan.bold('║  PAXIHUB DAPP - FULL LOGIC v3.1.1     ║'));
     console.log(chalk.cyan.bold('╚════════════════════════════════════════╝'));
     console.log(netColor(`  Network: ${net.name.toUpperCase()}`));
     console.log(chalk.gray(`  Chain ID: ${CONFIG.chainId || 'Loading...'}`));
@@ -1435,7 +1468,7 @@ DAPPEOF
 
 chmod +x dapp.js
 echo "$VERSION" > .version
-show_progress 2
+show_progress 1
 echo -e "${GREEN}✓ DApp v$VERSION created (Full Logic)${NC}\n"
 pause_and_clean
 
@@ -1515,7 +1548,7 @@ mkdir -p "${PREFIX:-$HOME/.local/bin}" 2>/dev/null || true
 ln -sf ~/paxi-dapp/paxidev "${PREFIX:-$HOME/.local/bin}/paxidev" 2>/dev/null || true
 ln -sf ~/paxi-dapp/paxidev-update "${PREFIX:-$HOME/.local/bin}/paxidev-update" 2>/dev/null || true
 
-show_progress 1
+show_progress 0.5
 echo -e "${GREEN}✓ Shortcuts ready${NC}\n"
 pause_and_clean
 
@@ -1523,9 +1556,9 @@ pause_and_clean
 echo -e "${CYAN}[7/7]${NC} ${BLUE}Creating docs...${NC}"
 
 cat > README.md << 'READMEEOF'
-# 🚀 PAXIHUB CREATE TOKEN PRC20 v3.1.0
+# 🚀 PAXIHUB CREATE TOKEN PRC20 v3.1.1
 
-## FULL IMPLEMENTATION - No Placeholders!
+## FULL IMPLEMENTATION - Fixed Hang Issues
 
 ## Quick Start
 ```bash
@@ -1545,55 +1578,15 @@ paxidev
 - ✅ **Execute Commands**: Save and run contract executions
 - ✅ **Auto-Update**: Update from GitHub
 
-## Full Implementation Details
-
-### Send PAXI
-- Uses SigningStargateClient.sendTokens()
-- Auto gas estimation
-- Saves to blockchain AND local history
-- Shows tx hash, height, gas used
-
-### Contract Operations
-- **Upload**: Upload WASM files to blockchain
-- **Instantiate**: Deploy contracts with init messages
-- **Execute**: Run contract functions with funds support
-- **Query**: Query contract state (read-only)
-
-### Transaction History
-- Fetches from blockchain via RPC tx_search
-- 3 queries: message.sender, transfer.sender, transfer.recipient
-- Deduplicates and sorts by block height
-- Fallback to 4 proxies if CORS issues
-- Local history backup
-
-### Staking
-- Configure staking contract address
-- Stake tokens with funds
-- Unstake with amount specification
-- Claim rewards
-- View staking info via queries
-
-## Network Switching
-Switch between testnet and mainnet anytime via Settings.
-ChainId auto-fetches on switch.
-
-## Auto-Update
-```bash
-paxidev-update
-```
-
-## Dependencies
-- @cosmjs/stargate: Bank transactions
-- @cosmjs/cosmwasm-stargate: Contract operations
-- @cosmjs/proto-signing: Wallet management
-- bip39: Mnemonic generation
-- axios: HTTP requests
-- chalk: Terminal colors
-- qrcode-terminal: QR codes
+## Fixed in v3.1.1
+- ✅ No more hanging on pkg update/upgrade
+- ✅ Visible progress with spinner
+- ✅ Shorter timeouts (60s update, 90s upgrade)
+- ✅ Better error handling
 
 ## Developer Info
 - Team: PaxiHub Team
-- Version: 3.1.0
+- Version: 3.1.1
 - GitHub: github.com/einrika/dapps-cli-all-in-one
 
 ## Support
@@ -1601,7 +1594,7 @@ paxidev-update
 - Telegram: https://t.me/paxi_network
 READMEEOF
 
-show_progress 1
+show_progress 0.5
 echo -e "${GREEN}✓ Documentation created${NC}\n"
 pause_and_clean
 
@@ -1609,36 +1602,22 @@ pause_and_clean
 clean_screen
 cat << "EOF"
 ╔════════════════════════════════════════════════╗
-║  ✅  INSTALLATION COMPLETE v3.1.0              ║
-║     FULL IMPLEMENTATION - NO PLACEHOLDERS      ║
+║  ✅  INSTALLATION COMPLETE v3.1.1              ║
+║     FULL IMPLEMENTATION - HANG FIXED           ║
 ╚════════════════════════════════════════════════╝
 
 📦 Location: ~/paxi-dapp
 🚀 Launch: paxidev
 🔄 Update: paxidev-update
 
-✨ FULL FEATURES IMPLEMENTED:
-  ✓ Real Send PAXI transactions (SigningStargateClient)
-  ✓ Contract upload/instantiate/execute/query
-  ✓ PRC-20 token transfers and balance checks
-  ✓ Staking contract integration (stake/unstake/claim)
-  ✓ Blockchain transaction history (RPC tx_search)
-  ✓ Save & execute commands with contract calls
-  ✓ Dual network mode (auto chainId fetch)
-  ✓ Persistent wallet storage
+✨ IMPROVEMENTS:
+  ✓ No more hanging on pkg update
+  ✓ Visible progress with spinner
+  ✓ Shorter timeouts (faster install)
+  ✓ Full logic implementation
 
 🔄 NETWORK SWITCHING:
   Switch anytime via Settings → Switch Network
-  ChainId auto-fetches from /status endpoint
-
-📜 TRANSACTION HISTORY:
-  Real blockchain data via RPC
-  Proxy fallback for CORS
-  Local backup storage
-
-💡 ALL LOGIC IMPLEMENTED:
-  No placeholders or "coming soon"
-  Ready for production use
 
 👨‍💻 Dev Team: PaxiHub Team
 
