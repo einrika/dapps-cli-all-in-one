@@ -1759,7 +1759,7 @@ async function mainMenuLoop() {
             '28. 💾 Export Wallet',
             '29. ⚙️  Settings',
             '',
-            net.color(`» Current Network: ${net.name.toUpperCase()} (${CONFIG.chainId || 'Loading...'})`),
+            chalk.hex(net.color)(`» Current Network: ${net.name.toUpperCase()} (${CONFIG.chainId || 'Loading...'})`),
             '',
             '0.  🚪 Exit'
         ];
