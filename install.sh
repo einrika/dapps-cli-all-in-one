@@ -514,10 +514,7 @@ async function getSigningCosmWasmClient() {
 }
 
 async function showBanner() {
-    // Don't clear here, let mainMenuLoop handle it
-    const net = getCurrentNetwork();
-    const netColor = net.color;
-    
+    // Don't clear here, let mainMenuLoop handle it    
     if (!CONFIG.chainId) {
         await fetchChainId();
     }
@@ -525,7 +522,7 @@ async function showBanner() {
     console.log(chalk.cyan.bold('╔════════════════════════════════════════╗'));
     console.log(chalk.cyan.bold('║  PAXIHUB DAPP - FULL LOGIC v3.2.0     ║'));
     console.log(chalk.cyan.bold('╚════════════════════════════════════════╝'));
-    console.log(netColor(`  Network: ${net.name.toUpperCase()}`));
+    console.log(chalk.cyan(`  Network: ${net.name.toUpperCase()}`));
     console.log(chalk.gray(`  Chain ID: ${CONFIG.chainId || 'Loading...'}`));
     
     const wallet = loadWallet();
