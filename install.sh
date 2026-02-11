@@ -1714,7 +1714,8 @@ async function mainMenuLoop() {
         clearScreen();
         await showBanner();
         const net = getCurrentNetwork();
-        
+        const netColor = net.color;
+   
         const options = [
             chalk.cyan.bold('╔═══ WALLET ═══╗'),
             '1.  🔑 Generate New Wallet',
@@ -1759,7 +1760,7 @@ async function mainMenuLoop() {
             '28. 💾 Export Wallet',
             '29. ⚙️  Settings',
             '',
-            chalk.hex(net.color)(`» Current Network: ${net.name.toUpperCase()} (${CONFIG.chainId || 'Loading...'})`),
+            netColor(`» Current Network: ${net.name.toUpperCase()} (${CONFIG.chainId || 'Loading...'})`),
             '',
             '0.  🚪 Exit'
         ];
