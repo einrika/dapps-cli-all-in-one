@@ -357,7 +357,7 @@ const CONFIG = {
             prefix: 'paxi',
             denom: 'upaxi',
             gasPrice: '0.05upaxi',
-            color: chalk.yellow
+            color: 'yellow'
         },
         mainnet: {
             name: 'mainnet',
@@ -366,7 +366,7 @@ const CONFIG = {
             prefix: 'paxi',
             denom: 'upaxi',
             gasPrice: '0.05upaxi',
-            color: chalk.green
+            color: 'green'
         }
     }
 };
@@ -1731,7 +1731,7 @@ async function mainMenuLoop() {
         clearScreen();
         await showBanner();
         const net = getCurrentNetwork();
-        const netColor = net.color;
+        const netColor = chalk[net.color] || chalk.white;
    
         const options = [
             chalk.cyan.bold('╔═══ WALLET ═══╗'),
