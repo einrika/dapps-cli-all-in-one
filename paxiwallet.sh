@@ -77,8 +77,27 @@ pause_and_clean() {
 
 # START
 show_header_once
+
+echo -e "${CYAN}Pilih opsi:${NC}"
+echo -e "1) Install Baru"
+echo -e "2) Update (Preserve Data)"
+read -p "Pilihan [1-2]: " ACTION
+
+if [ "$ACTION" == "2" ]; then
+    echo -e "${YELLOW}🔄 Mode Update Aktif. Menyiapkan backup data...${NC}"
+    if [ -d ~/paxi-dapp ]; then
+        mkdir -p ~/paxi-data-backup
+        for file in wallet.json config.json history.json contracts.json execute_commands.json; do
+            if [ -f ~/paxi-dapp/$file ]; then
+                cp ~/paxi-dapp/$file ~/paxi-data-backup/
+                echo -e "${GREEN}✓ Backup $file${NC}"
+            fi
+        done
+    fi
+fi
+
 echo ""
-echo -e "${CYAN}🚀 Starting installation...${NC}"
+echo -e "${CYAN}🚀 Starting process...${NC}"
 echo ""
 
 # [0/7] Fix dpkg
@@ -514,6 +533,7 @@ async function getSigningCosmWasmClient() {
 }
 
 async function showBanner() {
+    const net = getCurrentNetwork();
     // Don't clear here, let mainMenuLoop handle it    
     if (!CONFIG.chainId) {
         await fetchChainId();
@@ -1828,14 +1848,14 @@ pause_and_clean
 # [6/7] Shortcuts
 echo -e "${CYAN}[6/7]${NC} ${BLUE}Creating shortcuts...${NC}"
 
-cat > paxidev << 'SHORTCUTEOF'
+cat > walletpaxi << 'SHORTCUTEOF'
 #!/bin/bash
 printf '\033c'
 cd ~/paxi-dapp && node dapp.js
 SHORTCUTEOF
-chmod +x paxidev
+chmod +x walletpaxi
 
-cat > paxidev-update << 'UPDATEEOF'
+cat > updated-walletpaxi << 'UPDATEEOF'
 #!/bin/bash
 printf '\033c'
 RED='\033[0;31m'
@@ -1872,41 +1892,58 @@ echo -e "${CYAN}⬇️  Downloading latest version...${NC}"
 cd ~ || exit 1
 rm -f install.sh
 
-if curl -sL https://raw.githubusercontent.com/einrika/dapps-cli-all-in-one/main/install.sh > install.sh; then
+if curl -sL https://raw.githubusercontent.com/einrika/dapps-cli-all-in-one/main/paxiwallet.sh > paxiwallet.sh; then
     echo -e "${GREEN}✓ Downloaded${NC}"
 else
     echo -e "${RED}✗ Download failed!${NC}"
     exit 1
 fi
 
-chmod +x install.sh
+chmod +x paxiwallet.sh
 echo ""
 echo -e "${CYAN}🚀 Installing latest version...${NC}"
 echo ""
-bash install.sh
-rm -f install.sh
+bash paxiwallet.sh
+rm -f paxiwallet.sh
 echo ""
 echo -e "${GREEN}✅ Update complete!${NC}"
 echo ""
 UPDATEEOF
-chmod +x paxidev-update
+chmod +x updated-walletpaxi
 
 if ! grep -q "paxi-dapp" ~/.bashrc; then
     echo 'export PATH="$HOME/paxi-dapp:$PATH"' >> ~/.bashrc
-    echo 'alias paxidev="cd ~/paxi-dapp && ./paxidev"' >> ~/.bashrc
-    echo 'alias paxidev-update="cd ~/paxi-dapp && ./paxidev-update"' >> ~/.bashrc
+    echo 'alias walletpaxi="cd ~/paxi-dapp && ./walletpaxi"' >> ~/.bashrc
+    echo 'alias updated-walletpaxi="cd ~/paxi-dapp && ./updated-walletpaxi"' >> ~/.bashrc
 fi
 
 mkdir -p "${PREFIX:-$HOME/.local/bin}" 2>/dev/null || true
-ln -sf ~/paxi-dapp/paxidev "${PREFIX:-$HOME/.local/bin}/paxidev" 2>/dev/null || true
-ln -sf ~/paxi-dapp/paxidev-update "${PREFIX:-$HOME/.local/bin}/paxidev-update" 2>/dev/null || true
+ln -sf ~/paxi-dapp/walletpaxi "${PREFIX:-$HOME/.local/bin}/walletpaxi" 2>/dev/null || true
+ln -sf ~/paxi-dapp/updated-walletpaxi "${PREFIX:-$HOME/.local/bin}/updated-walletpaxi" 2>/dev/null || true
 
 show_progress 0.5
 echo -e "${GREEN}✓ Shortcuts ready${NC}\n"
 pause_and_clean
 
-# [7/7] Docs
-echo -e "${CYAN}[7/7]${NC} ${BLUE}Creating docs...${NC}"
+# [7/7] Restore Data (if Update)
+echo -e "${CYAN}[7/7]${NC} ${BLUE}Restoring data...${NC}"
+if [ "$ACTION" == "2" ] && [ -d ~/paxi-data-backup ]; then
+    echo -e "${YELLOW}⏳ Restoring backed up data...${NC}"
+    for file in wallet.json config.json history.json contracts.json execute_commands.json; do
+        if [ -f ~/paxi-data-backup/$file ]; then
+            cp ~/paxi-data-backup/$file ~/paxi-dapp/
+            echo -e "${GREEN}✓ Restored $file${NC}"
+        fi
+    done
+    rm -rf ~/paxi-data-backup
+    echo -e "${GREEN}✓ Restoration complete${NC}"
+else
+    echo -e "${GREEN}✓ No data to restore (Fresh install)${NC}"
+fi
+echo ""
+
+# [8/8] Docs
+echo -e "${CYAN}[8/8]${NC} ${BLUE}Creating docs...${NC}"
 
 cat > README.md << 'READMEEOF'
 # 🚀 PAXIHUB CREATE TOKEN PRC20 v3.2.0
@@ -1915,7 +1952,7 @@ cat > README.md << 'READMEEOF'
 
 ## Quick Start
 ```bash
-paxidev
+walletpaxi
 ```
 
 ## UI Fix v3.2.0
@@ -1964,7 +2001,7 @@ Only the designated minter can mint new tokens.
 
 ## Auto-Update
 ```bash
-paxidev-update
+updated-walletpaxi
 ```
 
 ## Developer Info
@@ -1991,13 +2028,13 @@ pause_and_clean
 clean_screen
 cat << "EOF"
 ╔════════════════════════════════════════════════╗
-║  ✅  INSTALLATION COMPLETE v3.2.0              ║
+║  ✅  PROCESS COMPLETE v3.2.0                   ║
 ║     FULL PRC-20 with Mint/Burn/Allowance      ║
 ╚════════════════════════════════════════════════╝
 
 📦 Location: ~/paxi-dapp
-🚀 Launch: paxidev
-🔄 Update: paxidev-update
+🚀 Launch: walletpaxi
+🔄 Update: updated-walletpaxi
 
 ✨ NEW FEATURES:
   ✓ Complete PRC-20 implementation
@@ -2028,8 +2065,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 else
     echo -e "\n${YELLOW}═══════════════════════════════════════${NC}"
     echo -e "${GREEN}To launch PaxiHub, use one of:${NC}"
-    echo -e "${WHITE}1. paxidev${NC}         ${GRAY}(if already in PATH)${NC}"
-    echo -e "${WHITE}2. cd ~/paxi-dapp && ./paxidev${NC}"
-    echo -e "${WHITE}3. source ~/.bashrc && paxidev${NC}"
+    echo -e "${WHITE}1. walletpaxi${NC}         ${GRAY}(if already in PATH)${NC}"
+    echo -e "${WHITE}2. cd ~/paxi-dapp && ./walletpaxi${NC}"
+    echo -e "${WHITE}3. source ~/.bashrc && walletpaxi${NC}"
     echo -e "${YELLOW}═══════════════════════════════════════${NC}\n"
 fi
