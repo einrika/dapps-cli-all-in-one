@@ -1911,15 +1911,31 @@ echo ""
 UPDATEEOF
 chmod +x updated-walletpaxi
 
+# Clean old aliases
+sed -i '/paxidev/d' ~/.bashrc 2>/dev/null || true
+
 if ! grep -q "paxi-dapp" ~/.bashrc; then
     echo 'export PATH="$HOME/paxi-dapp:$PATH"' >> ~/.bashrc
+fi
+
+if ! grep -q "alias walletpaxi=" ~/.bashrc; then
     echo 'alias walletpaxi="cd ~/paxi-dapp && ./walletpaxi"' >> ~/.bashrc
+fi
+
+if ! grep -q "alias updated-walletpaxi=" ~/.bashrc; then
     echo 'alias updated-walletpaxi="cd ~/paxi-dapp && ./updated-walletpaxi"' >> ~/.bashrc
 fi
 
-mkdir -p "${PREFIX:-$HOME/.local/bin}" 2>/dev/null || true
-ln -sf ~/paxi-dapp/walletpaxi "${PREFIX:-$HOME/.local/bin}/walletpaxi" 2>/dev/null || true
-ln -sf ~/paxi-dapp/updated-walletpaxi "${PREFIX:-$HOME/.local/bin}/updated-walletpaxi" 2>/dev/null || true
+mkdir -p "$HOME/.local/bin" 2>/dev/null || true
+ln -sf ~/paxi-dapp/walletpaxi "$HOME/.local/bin/walletpaxi" 2>/dev/null || true
+ln -sf ~/paxi-dapp/updated-walletpaxi "$HOME/.local/bin/updated-walletpaxi" 2>/dev/null || true
+
+# Add $HOME/.local/bin to PATH if not already there
+if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
+    if ! grep -q ".local/bin" ~/.bashrc; then
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+    fi
+fi
 
 show_progress 0.5
 echo -e "${GREEN}✓ Shortcuts ready${NC}\n"
