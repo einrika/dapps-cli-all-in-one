@@ -55,24 +55,23 @@ fi
 
 echo ""
 echo -e "${CYAN}[3/6]${NC} ${YELLOW}Removing symbolic links...${NC}"
-if [ -L "$PREFIX/bin/paxi" ]; then
-    rm -f $PREFIX/bin/paxi
-    echo -e "${GREEN}✓ Removed paxi command${NC}"
-fi
-if [ -L "$PREFIX/bin/paxi-update" ]; then
-    rm -f $PREFIX/bin/paxi-update
-    echo -e "${GREEN}✓ Removed paxi-update command${NC}"
-fi
+for cmd in paxi paxi-update paxidev paxidev-update walletpaxi updated-walletpaxi; do
+    if [ -L "${PREFIX:-$HOME/.local/bin}/$cmd" ]; then
+        rm -f "${PREFIX:-$HOME/.local/bin}/$cmd"
+        echo -e "${GREEN}✓ Removed $cmd symbolic link${NC}"
+    fi
+done
 
 echo ""
 echo -e "${CYAN}[4/6]${NC} ${YELLOW}Cleaning ~/.bashrc...${NC}"
-if grep -q "paxi-dapp" ~/.bashrc 2>/dev/null; then
+if grep -qE "paxi-dapp|paxidev|walletpaxi" ~/.bashrc 2>/dev/null; then
     # Backup bashrc
     cp ~/.bashrc ~/.bashrc.backup-$(date +%Y%m%d-%H%M%S)
     
-    # Remove paxi-dapp lines
+    # Remove paxi-dapp related lines
     sed -i '/paxi-dapp/d' ~/.bashrc
     sed -i '/alias paxi/d' ~/.bashrc
+    sed -i '/alias walletpaxi/d' ~/.bashrc
     
     echo -e "${GREEN}✓ Cleaned ~/.bashrc${NC}"
     echo -e "${YELLOW}  Backup saved to ~/.bashrc.backup-*${NC}"

@@ -1,159 +1,112 @@
-# PAXI Wallet (CLI)
+# PAXI Wallet CLI
 
-Wallet CLI untuk jaringan PAXI (Cosmos-based).  
-Fokus pada fungsi inti wallet dan pengembangan PRC-20 token.
+Professional Command Line Interface (CLI) for PAXI Network (Cosmos-based). Focuses on core wallet functionality and PRC-20 token management.
 
-![image](https://s6.imgcdn.dev/Y1h2sh.jpg)
+![PAXI Wallet](https://s6.imgcdn.dev/Y1h2sh.jpg)
 
----
+## 🚀 Features
 
-## Fitur
+### 🔐 Wallet Management
+- **Generate Wallet**: Create a new wallet with a 24-word BIP39 mnemonic.
+- **Import/Export**: Easily import or export your wallet using mnemonics.
+- **Persistence**: Securely stores your wallet locally (until manual logout).
+- **QR Code**: View your wallet address and its corresponding QR code for easy receiving.
+- **Dual Network**: Seamlessly switch between **Mainnet** and **Testnet**.
 
-### Wallet
-- Generate wallet (mnemonic 12 kata, BIP39)
-- Import dan export mnemonic
-- Simpan dan load wallet terenkripsi
-- Menampilkan alamat wallet dan QR code
+### 💸 Core Transactions
+- **Balance Inquiry**: Check your PAXI balance in real-time.
+- **Transfer PAXI**: Send PAXI tokens to any address with optional memos.
+- **Transaction History**: Track your recent blockchain activities.
 
-### Balance
-- Saldo PAXI langsung ditampilkan saat aplikasi dijalankan
+### 🪙 PRC-20 Token Suite
+Complete implementation of CW20 standard:
+- **Token Creation**: Launch your own PRC-20 token in minutes.
+- **Management**: Mint new tokens (minter only) or burn your own tokens.
+- **Allowance System**: Professional allowance management (Increase/Decrease/Check).
+- **Advanced Transfers**: Standard transfers and `TransferFrom` using allowances.
 
-### Transfer
-- Kirim / transfer token PAXI
-
-### Transaction History
-- Belum berfungsi
-- Perlu perbaikan metode fetch history dari jaringan Cosmos / PAXI
-
----
-
-## PRC-20 Token
-
-Fitur PRC-20 difokuskan untuk kebutuhan developer.
-
-Fitur yang tersedia:
-- Create PRC-20 token
-- Transfer PRC-20
-- Check balance PRC-20
-- Mint token
-- Burn token
-- Renounce minting
-- Transfer ownership
-- Transfer marketing / fee address
-
-Catatan:
-- Fitur "View all PRC-20 tokens" membutuhkan query khusus di Cosmos
-- Jika tidak memungkinkan secara teknis, fitur ini akan dihapus
+### 🛠 Developer Tools
+- **Contract Management**: Upload, instantiate, execute, and query CosmWasm contracts.
+- **Command Presets**: Save frequently used execute commands for quick access.
 
 ---
 
-## Fitur yang Tidak Didukung
+## 📥 Installation & Setup
 
-Fitur berikut sengaja dihapus dan tidak termasuk scope project:
+### Requirements
+- Node.js (v16+)
+- npm
+- Termux (for Android users) or any Linux/macOS terminal.
 
-### NFT (PRC-721)
-- Create collection
-- Mint NFT
-- Transfer NFT
-- Query NFT
-- View NFT
-
-### DEX dan Liquidity
-- Provide liquidity
-- Withdraw liquidity
-- Swap token
-- Pool list dan detail
-
-### Staking
-- Delegate dan undelegate
-- Claim rewards
-- View delegations
-
-### Governance
-- Vote proposal
-
----
-
-## Instalasi
-
-### Auto install (disarankan)
+### Quick Install
 ```bash
-curl -sL https://raw.githubusercontent.com/einrika/dapps-cli-all-in-one/main/install.sh > install.sh && bash install.sh
+curl -sL https://raw.githubusercontent.com/einrika/dapps-cli-all-in-one/main/paxiwallet.sh > paxiwallet.sh && bash paxiwallet.sh
 ```
-### Uninstall
+
+---
+
+## 🎮 CLI Usage
+
+After installation, you can use the following commands:
+
+### `walletpaxi`
+Launches the main Interactive CLI menu.
+
+### `updated-walletpaxi`
+Automatically updates the tool to the latest version while **preserving your wallet and data**.
+
+---
+
+## 📋 Commands Overview
+
+| Command | Action |
+|---------|--------|
+| `1` | Generate New Wallet |
+| `2` | Import from Mnemonic |
+| `3` | Send PAXI |
+| `4` | Transaction History |
+| `6` | Create PRC-20 Token |
+| `9` | Mint Tokens |
+| `10` | Burn Tokens |
+| `16-19`| Contract Management |
+| `29` | Settings (Switch Network, Logout, etc.) |
+
+---
+
+## 🔄 Update & Maintenance
+
+### How to Update
+Run the update command:
+```bash
+updated-walletpaxi
+```
+The script will backup your `wallet.json`, `history.json`, and other configurations, download the latest version, and restore your data automatically.
+
+### How to Uninstall
+Run the uninstaller script:
 ```bash
 curl -sL https://raw.githubusercontent.com/einrika/dapps-cli-all-in-one/main/uninstaller.sh > uninstaller.sh && bash uninstaller.sh
 ```
-### Manual install
-```
-nano install.sh
-# paste script install.sh
-# CTRL+X, Y, Enter
-
-chmod +x install.sh
-bash install.sh
-```
-
-## Update dapps script
-```bash
-paxi-update
-```
 
 ---
 
-### Menjalankan dapps script
-```
-paxidev
-```
+## 🌐 Network Configuration
+
+### Mainnet
+- **RPC**: `https://mainnet-rpc.paxinet.io`
+- **Prefix**: `paxi`
+
+### Testnet
+- **RPC**: `https://testnet-rpc.paxinet.io`
+- **Prefix**: `paxi`
 
 ---
 
-### Struktur Direktori
-```text
-~/paxi-wallet/
-├── wallet.js
-├── paxi
-├── wallet.enc
-├── history.json
-├── package.json
-└── node_modules/
-```
+## 👨‍💻 Developer Support
+
+- **Team**: PaxiHub Team
+- **Documentation**: [https://paxinet.io/paxi_docs/developers](https://paxinet.io/paxi_docs/developers)
+- **Telegram**: [https://t.me/paxi_network](https://t.me/paxi_network)
 
 ---
-
-### Keamanan
-
-1. Menggunakan standar BIP39
-
-2. Semua data disimpan lokal
-
-3. Wallet dapat dienkripsi dengan password
-
-4. Private key tidak diexport
-
-5. Mnemonic hanya berada di memory saat runtime
-
----
-
-### Catatan Teknis
-
-1. Transaction history belum berjalan dan perlu implementasi query yang benar di Cosmos RPC
-
-2. Project ini hanya fokus pada wallet dan PRC-20
-
-3. Fitur di luar scope tidak akan ditambahkan
----
-
-### Status
-
-- Wallet dasar: siap digunakan
-
-- PRC-20: siap untuk development
-
-- Transaction history: belum selesai
-
----
-
-### Tujuan
-
-Project ini dibuat sebagai CLI wallet sederhana dan alat bantu developer PRC-20 di jaringan PAXI.
+*Disclaimer: Use at your own risk. Always backup your mnemonics in a secure place.*

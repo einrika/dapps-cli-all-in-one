@@ -77,8 +77,27 @@ pause_and_clean() {
 
 # START
 show_header_once
+
+echo -e "${CYAN}Pilih opsi:${NC}"
+echo -e "1) Install Baru"
+echo -e "2) Update (Preserve Data)"
+read -p "Pilihan [1-2]: " ACTION
+
+if [ "$ACTION" == "2" ]; then
+    echo -e "${YELLOW}🔄 Mode Update Aktif. Menyiapkan backup data...${NC}"
+    if [ -d ~/paxi-dapp ]; then
+        mkdir -p ~/paxi-data-backup
+        for file in wallet.json config.json history.json contracts.json execute_commands.json; do
+            if [ -f ~/paxi-dapp/$file ]; then
+                cp ~/paxi-dapp/$file ~/paxi-data-backup/
+                echo -e "${GREEN}✓ Backup $file${NC}"
+            fi
+        done
+    fi
+fi
+
 echo ""
-echo -e "${CYAN}🚀 Starting installation...${NC}"
+echo -e "${CYAN}🚀 Starting process...${NC}"
 echo ""
 
 # [0/7] Fix dpkg
@@ -337,8 +356,8 @@ const CONFIG = {
             lcd: 'https://testnet-lcd.paxinet.io',
             prefix: 'paxi',
             denom: 'upaxi',
-            gasPrice: '0.025upaxi',
-            color: chalk.yellow
+            gasPrice: '0.05upaxi',
+            color: 'yellow'
         },
         mainnet: {
             name: 'mainnet',
@@ -346,8 +365,8 @@ const CONFIG = {
             lcd: 'https://mainnet-lcd.paxinet.io',
             prefix: 'paxi',
             denom: 'upaxi',
-            gasPrice: '0.025upaxi',
-            color: chalk.green
+            gasPrice: '0.05upaxi',
+            color: 'green'
         }
     }
 };
@@ -367,6 +386,19 @@ function clearScreen() {
     // Menggunakan escape sequence yang lebih reliable untuk Termux
     // \x1Bc = reset terminal (ESC c)
     process.stdout.write('\x1Bc');
+}
+
+function inputInteger(promptStr) {
+    console.log(chalk.gray('ℹ Masukkan angka bulat tanpa desimal.'));
+    console.log(chalk.gray('  Sistem otomatis mengonversi ke 6 desimal saat diproses (contoh: 1 = 1000000).'));
+
+    while (true) {
+        const input = readline.question(promptStr);
+        if (/^\d+$/.test(input)) {
+            return input;
+        }
+        console.log(chalk.red('✗ Input tidak valid! Hanya menerima angka (0-9) tanpa titik atau koma.'));
+    }
 }
 
 function loadConfig() {
@@ -514,6 +546,7 @@ async function getSigningCosmWasmClient() {
 }
 
 async function showBanner() {
+    const net = getCurrentNetwork();
     // Don't clear here, let mainMenuLoop handle it    
     if (!CONFIG.chainId) {
         await fetchChainId();
@@ -574,6 +607,127 @@ async function generateWallet() {
     console.log(chalk.white('Address:'), chalk.yellow(account.address));
     console.log(chalk.white('\nMnemonic (SAVE THIS SECURELY):'));
     console.log(chalk.red(mnemonic));
+    pause();
+}
+
+async function distributePRC20Batch() {
+    const wallet = loadWallet();
+    if (!wallet) {
+        console.log(chalk.red('\n✗ No wallet loaded!'));
+        pause();
+        return;
+    }
+
+    console.log(chalk.cyan('\n📦 PRC-20 Batch Distribution (Dev Only)\n'));
+    const contractAddr = readline.question(chalk.white('Contract address: '));
+
+    console.log(chalk.yellow('\n⏳ Fetching token info...\n'));
+
+    let totalSupply = 0n;
+    let symbol = '';
+
+    try {
+        const net = getCurrentNetwork();
+        const client = await CosmWasmClient.connect(net.rpc);
+        const tokenInfo = await client.queryContractSmart(contractAddr, { token_info: {} });
+        totalSupply = BigInt(tokenInfo.total_supply);
+        symbol = tokenInfo.symbol;
+        console.log(chalk.green(`✓ Token found: ${tokenInfo.name} (${symbol})`));
+        console.log(chalk.white(`  Total Supply: ${totalSupply.toString()}\n`));
+    } catch (e) {
+        console.log(chalk.red(`\n✗ Failed to fetch token info: ${e.message}`));
+        pause();
+        return;
+    }
+
+    const recipients = [];
+    let totalPercent = 0;
+
+    while (true) {
+        console.log(chalk.cyan(`\nAdding recipient #${recipients.length + 1}`));
+        const address = readline.question(chalk.white('Recipient address (empty to finish): '));
+        if (!address) break;
+
+        const percent = parseInt(readline.question(chalk.white('Percentage (%): ')));
+        if (isNaN(percent) || percent <= 0) {
+            console.log(chalk.red('✗ Invalid percentage!'));
+            continue;
+        }
+
+        if (totalPercent + percent > 100) {
+            console.log(chalk.red(`✗ Total exceeds 100%! Current total: ${totalPercent}%`));
+            continue;
+        }
+
+        recipients.push({ address, percent });
+        totalPercent += percent;
+        console.log(chalk.green(`✓ Added! Total: ${totalPercent}%`));
+
+        if (totalPercent >= 100) break;
+    }
+
+    if (recipients.length === 0) {
+        console.log(chalk.yellow('\nNo recipients added.'));
+        pause();
+        return;
+    }
+
+    console.log(chalk.cyan('\n📊 Distribution Preview:'));
+    console.log(chalk.gray('--------------------------------------------------'));
+
+    const messages = recipients.map(r => {
+        const amount = (totalSupply * BigInt(r.percent)) / 100n;
+        console.log(chalk.white(`${r.address}:`), chalk.yellow(`${r.percent}%`), chalk.green(`(${amount.toString()} tokens)`));
+        return {
+            contractAddress: contractAddr,
+            msg: {
+                transfer: {
+                    recipient: r.address,
+                    amount: amount.toString()
+                }
+            }
+        };
+    });
+
+    console.log(chalk.gray('--------------------------------------------------'));
+    console.log(chalk.white(`Total Recipients: ${recipients.length}`));
+    console.log(chalk.white(`Total Percentage: ${totalPercent}%`));
+
+    const confirm = readline.question(chalk.red('\nExecute batch distribution? (yes/no): '));
+    if (confirm.toLowerCase() !== 'yes') {
+        console.log(chalk.yellow('\nDistribution cancelled.'));
+        pause();
+        return;
+    }
+
+    console.log(chalk.yellow('\n⏳ Executing batch transfer...\n'));
+
+    try {
+        const { client } = await getSigningCosmWasmClient();
+        const result = await client.executeMultiple(
+            wallet.address,
+            messages,
+            'auto',
+            `Batch Distribution: ${symbol}`
+        );
+
+        console.log(chalk.green('\n✅ Batch distribution successful!'));
+        console.log(chalk.white('Transaction Hash:'), chalk.gray(result.transactionHash));
+        console.log(chalk.white('Gas used:'), chalk.gray(result.gasUsed));
+
+        saveHistory({
+            type: 'PRC-20 Batch Distribute',
+            contract: contractAddr,
+            token: symbol,
+            recipients: recipients.length,
+            txHash: result.transactionHash,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (e) {
+        console.log(chalk.red(`\n✗ Batch execution failed: ${e.message}`));
+    }
+
     pause();
 }
 
@@ -644,7 +798,7 @@ async function sendPaxi() {
     
     console.log(chalk.cyan('\n📤 Send PAXI\n'));
     const recipient = readline.question(chalk.white('Recipient address: '));
-    const amount = readline.question(chalk.white('Amount (PAXI): '));
+    const amountStr = inputInteger(chalk.white('Amount (PAXI): '));
     const memo = readline.question(chalk.white('Memo (optional): '));
     
     console.log(chalk.yellow('\n⏳ Sending transaction...\n'));
@@ -652,7 +806,7 @@ async function sendPaxi() {
     try {
         const { client } = await getSigningStargateClient();
         const net = getCurrentNetwork();
-        const amountInMicro = Math.floor(parseFloat(amount) * 1e6).toString();
+        const amountInMicro = (BigInt(amountStr) * 1000000n).toString();
         
         const result = await client.sendTokens(
             wallet.address,
@@ -916,7 +1070,7 @@ async function createPRC20() {
     const name = readline.question(chalk.white('Token Name: '));
     const symbol = readline.question(chalk.white('Token Symbol: '));
     const decimals = parseInt(readline.question(chalk.white('Decimals (default 6): ')) || '6');
-    const initialSupply = readline.question(chalk.white('Initial Supply: '));
+    const initialSupplyStr = inputInteger(chalk.white('Initial Supply: '));
     const label = readline.question(chalk.white('Label: ')) || symbol;
     
     console.log(chalk.yellow('\n📢 Marketing Info (optional, press Enter to skip):\n'));
@@ -932,7 +1086,7 @@ async function createPRC20() {
         initial_balances: [
             {
                 address: wallet.address,
-                amount: initialSupply
+                amount: (BigInt(initialSupplyStr) * 1000000n).toString()
             }
         ],
         mint: {
@@ -978,7 +1132,7 @@ async function createPRC20() {
         console.log(chalk.white(`  Name: ${name}`));
         console.log(chalk.white(`  Symbol: ${symbol}`));
         console.log(chalk.white(`  Decimals: ${decimals}`));
-        console.log(chalk.white(`  Supply: ${initialSupply}`));
+    console.log(chalk.white(`  Supply: ${initialSupplyStr}`));
         console.log(chalk.green(`  Contract: ${contractAddress}`));
         console.log(chalk.gray(`  TX Hash: ${result.transactionHash}`));
         console.log(chalk.gray(`  Height: ${result.height}`));
@@ -1023,12 +1177,12 @@ async function transferPRC20() {
     console.log(chalk.cyan('\n📤 Transfer PRC-20\n'));
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const recipient = readline.question(chalk.white('Recipient address: '));
-    const amount = readline.question(chalk.white('Amount: '));
+    const amountStr = inputInteger(chalk.white('Amount: '));
     
     const executeMsg = {
         transfer: {
             recipient: recipient,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1117,12 +1271,12 @@ async function mintPRC20() {
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const recipient = readline.question(chalk.white('Recipient address (empty = your address): ')) || wallet.address;
-    const amount = readline.question(chalk.white('Amount to mint: '));
+    const amountStr = inputInteger(chalk.white('Amount to mint: '));
     
     const executeMsg = {
         mint: {
             recipient: recipient,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1172,11 +1326,11 @@ async function burnPRC20() {
     console.log(chalk.gray('This will burn tokens from your balance\n'));
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
-    const amount = readline.question(chalk.white('Amount to burn: '));
+    const amountStr = inputInteger(chalk.white('Amount to burn: '));
     
     const executeMsg = {
         burn: {
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1226,12 +1380,12 @@ async function increaseAllowance() {
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const spender = readline.question(chalk.white('Spender address: '));
-    const amount = readline.question(chalk.white('Amount: '));
+    const amountStr = inputInteger(chalk.white('Amount: '));
     
     const executeMsg = {
         increase_allowance: {
             spender: spender,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1282,12 +1436,12 @@ async function decreaseAllowance() {
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const spender = readline.question(chalk.white('Spender address: '));
-    const amount = readline.question(chalk.white('Amount to decrease: '));
+    const amountStr = inputInteger(chalk.white('Amount to decrease: '));
     
     const executeMsg = {
         decrease_allowance: {
             spender: spender,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1375,13 +1529,13 @@ async function transferFromPRC20() {
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const owner = readline.question(chalk.white('Owner address: '));
     const recipient = readline.question(chalk.white('Recipient address: '));
-    const amount = readline.question(chalk.white('Amount: '));
+    const amountStr = inputInteger(chalk.white('Amount: '));
     
     const executeMsg = {
         transfer_from: {
             owner: owner,
             recipient: recipient,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1432,12 +1586,12 @@ async function burnFromPRC20() {
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const owner = readline.question(chalk.white('Owner address: '));
-    const amount = readline.question(chalk.white('Amount to burn: '));
+    const amountStr = inputInteger(chalk.white('Amount to burn: '));
     
     const executeMsg = {
         burn_from: {
             owner: owner,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1711,7 +1865,7 @@ async function mainMenuLoop() {
         clearScreen();
         await showBanner();
         const net = getCurrentNetwork();
-        const netColor = net.color;
+        const netColor = chalk[net.color] || chalk.white;
    
         const options = [
             chalk.cyan.bold('╔═══ WALLET ═══╗'),
@@ -1728,34 +1882,35 @@ async function mainMenuLoop() {
             '9.  ⚒️  Mint Tokens',
             '10. 🔥 Burn Tokens',
             '11. 🔥 Burn From (Allowance)',
+            '12. 📦 PRC-20 Batch Distribution',
             '',
             chalk.cyan.bold('╔═══ ALLOWANCE MANAGEMENT ═══╗'),
-            '12. ➕ Increase Allowance',
-            '13. ➖ Decrease Allowance',
-            '14. 🔍 Check Allowance',
-            '15. 📤 Transfer From (Allowance)',
+            '13. ➕ Increase Allowance',
+            '14. ➖ Decrease Allowance',
+            '15. 🔍 Check Allowance',
+            '16. 📤 Transfer From (Allowance)',
             '',
             chalk.cyan.bold('╔═══ CONTRACT MANAGEMENT ═══╗'),
-            '16. 📤 Upload Contract',
-            '17. 🎯 Instantiate Contract',
-            '18. ⚡ Execute Contract',
-            '19. 🔍 Query Contract',
+            '17. 📤 Upload Contract',
+            '18. 🎯 Instantiate Contract',
+            '19. ⚡ Execute Contract',
+            '20. 🔍 Query Contract',
             '',
             chalk.cyan.bold('╔═══ EXECUTE LIST ═══╗'),
-            '20. 💾 Save Execute Command',
-            '21. 📋 List & Run Saved Commands',
-            '22. 🗑️  Delete Saved Command',
+            '21. 💾 Save Execute Command',
+            '22. 📋 List & Run Saved Commands',
+            '23. 🗑️  Delete Saved Command',
             '',
             chalk.cyan.bold(`╔═══ STAKING (by ${CONFIG.DEV_CONTRACT_AUTHOR}) ═══╗`),
-            '23. 💎 Stake Tokens',
-            '24. 🔓 Unstake Tokens',
-            '25. 💰 Claim Rewards',
-            '26. 📊 View Staking Info',
+            '24. 💎 Stake Tokens',
+            '25. 🔓 Unstake Tokens',
+            '26. 💰 Claim Rewards',
+            '27. 📊 View Staking Info',
             '',
             chalk.cyan.bold('╔═══ SYSTEM ═══╗'),
-            '27. 👨‍💻 Developer Info',
-            '28. 💾 Export Wallet',
-            '29. ⚙️  Settings',
+            '28. 👨‍💻 Developer Info',
+            '29. 💾 Export Wallet',
+            '30. ⚙️  Settings',
             '',
             netColor(`» Current Network: ${net.name.toUpperCase()} (${CONFIG.chainId || 'Loading...'})`),
             '',
@@ -1778,24 +1933,25 @@ async function mainMenuLoop() {
                 case '9': await mintPRC20(); break;
                 case '10': await burnPRC20(); break;
                 case '11': await burnFromPRC20(); break;
-                case '12': await increaseAllowance(); break;
-                case '13': await decreaseAllowance(); break;
-                case '14': await checkAllowance(); break;
-                case '15': await transferFromPRC20(); break;
-                case '16': await uploadContract(); break;
-                case '17': await instantiateContract(); break;
-                case '18': await executeContract(); break;
-                case '19': await queryContract(); break;
-                case '20': await saveExecuteCommand(); break;
-                case '21': await listExecuteCommands(); break;
-                case '22': await deleteExecuteCommand(); break;
-                case '23': await stakeTokens(); break;
-                case '24': await unstakeTokens(); break;
-                case '25': await claimStakingRewards(); break;
-                case '26': await viewStakingInfo(); break;
-                case '27': showDevInfo(); break;
-                case '28': exportWallet(); break;
-                case '29': await settings(); break;
+                case '12': await distributePRC20Batch(); break;
+                case '13': await increaseAllowance(); break;
+                case '14': await decreaseAllowance(); break;
+                case '15': await checkAllowance(); break;
+                case '16': await transferFromPRC20(); break;
+                case '17': await uploadContract(); break;
+                case '18': await instantiateContract(); break;
+                case '19': await executeContract(); break;
+                case '20': await queryContract(); break;
+                case '21': await saveExecuteCommand(); break;
+                case '22': await listExecuteCommands(); break;
+                case '23': await deleteExecuteCommand(); break;
+                case '24': await stakeTokens(); break;
+                case '25': await unstakeTokens(); break;
+                case '26': await claimStakingRewards(); break;
+                case '27': await viewStakingInfo(); break;
+                case '28': showDevInfo(); break;
+                case '29': exportWallet(); break;
+                case '30': await settings(); break;
                 case '0': 
                     console.log(chalk.green('\n👋 Goodbye!\n'));
                     process.exit(0);
@@ -1828,14 +1984,14 @@ pause_and_clean
 # [6/7] Shortcuts
 echo -e "${CYAN}[6/7]${NC} ${BLUE}Creating shortcuts...${NC}"
 
-cat > paxidev << 'SHORTCUTEOF'
+cat > walletpaxi << 'SHORTCUTEOF'
 #!/bin/bash
 printf '\033c'
 cd ~/paxi-dapp && node dapp.js
 SHORTCUTEOF
-chmod +x paxidev
+chmod +x walletpaxi
 
-cat > paxidev-update << 'UPDATEEOF'
+cat > updated-walletpaxi << 'UPDATEEOF'
 #!/bin/bash
 printf '\033c'
 RED='\033[0;31m'
@@ -1872,41 +2028,74 @@ echo -e "${CYAN}⬇️  Downloading latest version...${NC}"
 cd ~ || exit 1
 rm -f install.sh
 
-if curl -sL https://raw.githubusercontent.com/einrika/dapps-cli-all-in-one/main/install.sh > install.sh; then
+if curl -sL https://raw.githubusercontent.com/einrika/dapps-cli-all-in-one/main/paxiwallet.sh > paxiwallet.sh; then
     echo -e "${GREEN}✓ Downloaded${NC}"
 else
     echo -e "${RED}✗ Download failed!${NC}"
     exit 1
 fi
 
-chmod +x install.sh
+chmod +x paxiwallet.sh
 echo ""
 echo -e "${CYAN}🚀 Installing latest version...${NC}"
 echo ""
-bash install.sh
-rm -f install.sh
+bash paxiwallet.sh
+rm -f paxiwallet.sh
 echo ""
 echo -e "${GREEN}✅ Update complete!${NC}"
 echo ""
 UPDATEEOF
-chmod +x paxidev-update
+chmod +x updated-walletpaxi
+
+# Clean old aliases
+sed -i '/paxidev/d' ~/.bashrc 2>/dev/null || true
 
 if ! grep -q "paxi-dapp" ~/.bashrc; then
     echo 'export PATH="$HOME/paxi-dapp:$PATH"' >> ~/.bashrc
-    echo 'alias paxidev="cd ~/paxi-dapp && ./paxidev"' >> ~/.bashrc
-    echo 'alias paxidev-update="cd ~/paxi-dapp && ./paxidev-update"' >> ~/.bashrc
 fi
 
-mkdir -p "${PREFIX:-$HOME/.local/bin}" 2>/dev/null || true
-ln -sf ~/paxi-dapp/paxidev "${PREFIX:-$HOME/.local/bin}/paxidev" 2>/dev/null || true
-ln -sf ~/paxi-dapp/paxidev-update "${PREFIX:-$HOME/.local/bin}/paxidev-update" 2>/dev/null || true
+if ! grep -q "alias walletpaxi=" ~/.bashrc; then
+    echo 'alias walletpaxi="cd ~/paxi-dapp && ./walletpaxi"' >> ~/.bashrc
+fi
+
+if ! grep -q "alias updated-walletpaxi=" ~/.bashrc; then
+    echo 'alias updated-walletpaxi="cd ~/paxi-dapp && ./updated-walletpaxi"' >> ~/.bashrc
+fi
+
+mkdir -p "$HOME/.local/bin" 2>/dev/null || true
+ln -sf ~/paxi-dapp/walletpaxi "$HOME/.local/bin/walletpaxi" 2>/dev/null || true
+ln -sf ~/paxi-dapp/updated-walletpaxi "$HOME/.local/bin/updated-walletpaxi" 2>/dev/null || true
+
+# Add $HOME/.local/bin to PATH if not already there
+if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
+    if ! grep -q ".local/bin" ~/.bashrc; then
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+    fi
+fi
 
 show_progress 0.5
 echo -e "${GREEN}✓ Shortcuts ready${NC}\n"
 pause_and_clean
 
-# [7/7] Docs
-echo -e "${CYAN}[7/7]${NC} ${BLUE}Creating docs...${NC}"
+# [7/7] Restore Data (if Update)
+echo -e "${CYAN}[7/7]${NC} ${BLUE}Restoring data...${NC}"
+if [ "$ACTION" == "2" ] && [ -d ~/paxi-data-backup ]; then
+    echo -e "${YELLOW}⏳ Restoring backed up data...${NC}"
+    for file in wallet.json config.json history.json contracts.json execute_commands.json; do
+        if [ -f ~/paxi-data-backup/$file ]; then
+            cp ~/paxi-data-backup/$file ~/paxi-dapp/
+            echo -e "${GREEN}✓ Restored $file${NC}"
+        fi
+    done
+    rm -rf ~/paxi-data-backup
+    echo -e "${GREEN}✓ Restoration complete${NC}"
+else
+    echo -e "${GREEN}✓ No data to restore (Fresh install)${NC}"
+fi
+echo ""
+
+# [8/8] Docs
+echo -e "${CYAN}[8/8]${NC} ${BLUE}Creating docs...${NC}"
 
 cat > README.md << 'READMEEOF'
 # 🚀 PAXIHUB CREATE TOKEN PRC20 v3.2.0
@@ -1915,7 +2104,7 @@ cat > README.md << 'READMEEOF'
 
 ## Quick Start
 ```bash
-paxidev
+walletpaxi
 ```
 
 ## UI Fix v3.2.0
@@ -1964,7 +2153,7 @@ Only the designated minter can mint new tokens.
 
 ## Auto-Update
 ```bash
-paxidev-update
+updated-walletpaxi
 ```
 
 ## Developer Info
@@ -1991,13 +2180,13 @@ pause_and_clean
 clean_screen
 cat << "EOF"
 ╔════════════════════════════════════════════════╗
-║  ✅  INSTALLATION COMPLETE v3.2.0              ║
+║  ✅  PROCESS COMPLETE v3.2.0                   ║
 ║     FULL PRC-20 with Mint/Burn/Allowance      ║
 ╚════════════════════════════════════════════════╝
 
 📦 Location: ~/paxi-dapp
-🚀 Launch: paxidev
-🔄 Update: paxidev-update
+🚀 Launch: walletpaxi
+🔄 Update: updated-walletpaxi
 
 ✨ NEW FEATURES:
   ✓ Complete PRC-20 implementation
@@ -2028,8 +2217,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 else
     echo -e "\n${YELLOW}═══════════════════════════════════════${NC}"
     echo -e "${GREEN}To launch PaxiHub, use one of:${NC}"
-    echo -e "${WHITE}1. paxidev${NC}         ${GRAY}(if already in PATH)${NC}"
-    echo -e "${WHITE}2. cd ~/paxi-dapp && ./paxidev${NC}"
-    echo -e "${WHITE}3. source ~/.bashrc && paxidev${NC}"
+    echo -e "${WHITE}1. walletpaxi${NC}         ${GRAY}(if already in PATH)${NC}"
+    echo -e "${WHITE}2. cd ~/paxi-dapp && ./walletpaxi${NC}"
+    echo -e "${WHITE}3. source ~/.bashrc && walletpaxi${NC}"
     echo -e "${YELLOW}═══════════════════════════════════════${NC}\n"
 fi
