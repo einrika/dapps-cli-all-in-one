@@ -356,7 +356,7 @@ const CONFIG = {
             lcd: 'https://testnet-lcd.paxinet.io',
             prefix: 'paxi',
             denom: 'upaxi',
-            gasPrice: '0.025upaxi',
+            gasPrice: '0.05upaxi',
             color: chalk.yellow
         },
         mainnet: {
@@ -365,7 +365,7 @@ const CONFIG = {
             lcd: 'https://mainnet-lcd.paxinet.io',
             prefix: 'paxi',
             denom: 'upaxi',
-            gasPrice: '0.025upaxi',
+            gasPrice: '0.05upaxi',
             color: chalk.green
         }
     }
