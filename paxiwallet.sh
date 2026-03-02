@@ -610,6 +610,127 @@ async function generateWallet() {
     pause();
 }
 
+async function distributePRC20Batch() {
+    const wallet = loadWallet();
+    if (!wallet) {
+        console.log(chalk.red('\n✗ No wallet loaded!'));
+        pause();
+        return;
+    }
+
+    console.log(chalk.cyan('\n📦 PRC-20 Batch Distribution (Dev Only)\n'));
+    const contractAddr = readline.question(chalk.white('Contract address: '));
+
+    console.log(chalk.yellow('\n⏳ Fetching token info...\n'));
+
+    let totalSupply = 0n;
+    let symbol = '';
+
+    try {
+        const net = getCurrentNetwork();
+        const client = await CosmWasmClient.connect(net.rpc);
+        const tokenInfo = await client.queryContractSmart(contractAddr, { token_info: {} });
+        totalSupply = BigInt(tokenInfo.total_supply);
+        symbol = tokenInfo.symbol;
+        console.log(chalk.green(`✓ Token found: ${tokenInfo.name} (${symbol})`));
+        console.log(chalk.white(`  Total Supply: ${totalSupply.toString()}\n`));
+    } catch (e) {
+        console.log(chalk.red(`\n✗ Failed to fetch token info: ${e.message}`));
+        pause();
+        return;
+    }
+
+    const recipients = [];
+    let totalPercent = 0;
+
+    while (true) {
+        console.log(chalk.cyan(`\nAdding recipient #${recipients.length + 1}`));
+        const address = readline.question(chalk.white('Recipient address (empty to finish): '));
+        if (!address) break;
+
+        const percent = parseInt(readline.question(chalk.white('Percentage (%): ')));
+        if (isNaN(percent) || percent <= 0) {
+            console.log(chalk.red('✗ Invalid percentage!'));
+            continue;
+        }
+
+        if (totalPercent + percent > 100) {
+            console.log(chalk.red(`✗ Total exceeds 100%! Current total: ${totalPercent}%`));
+            continue;
+        }
+
+        recipients.push({ address, percent });
+        totalPercent += percent;
+        console.log(chalk.green(`✓ Added! Total: ${totalPercent}%`));
+
+        if (totalPercent >= 100) break;
+    }
+
+    if (recipients.length === 0) {
+        console.log(chalk.yellow('\nNo recipients added.'));
+        pause();
+        return;
+    }
+
+    console.log(chalk.cyan('\n📊 Distribution Preview:'));
+    console.log(chalk.gray('--------------------------------------------------'));
+
+    const messages = recipients.map(r => {
+        const amount = (totalSupply * BigInt(r.percent)) / 100n;
+        console.log(chalk.white(`${r.address}:`), chalk.yellow(`${r.percent}%`), chalk.green(`(${amount.toString()} tokens)`));
+        return {
+            contractAddress: contractAddr,
+            msg: {
+                transfer: {
+                    recipient: r.address,
+                    amount: amount.toString()
+                }
+            }
+        };
+    });
+
+    console.log(chalk.gray('--------------------------------------------------'));
+    console.log(chalk.white(`Total Recipients: ${recipients.length}`));
+    console.log(chalk.white(`Total Percentage: ${totalPercent}%`));
+
+    const confirm = readline.question(chalk.red('\nExecute batch distribution? (yes/no): '));
+    if (confirm.toLowerCase() !== 'yes') {
+        console.log(chalk.yellow('\nDistribution cancelled.'));
+        pause();
+        return;
+    }
+
+    console.log(chalk.yellow('\n⏳ Executing batch transfer...\n'));
+
+    try {
+        const { client } = await getSigningCosmWasmClient();
+        const result = await client.executeMultiple(
+            wallet.address,
+            messages,
+            'auto',
+            `Batch Distribution: ${symbol}`
+        );
+
+        console.log(chalk.green('\n✅ Batch distribution successful!'));
+        console.log(chalk.white('Transaction Hash:'), chalk.gray(result.transactionHash));
+        console.log(chalk.white('Gas used:'), chalk.gray(result.gasUsed));
+
+        saveHistory({
+            type: 'PRC-20 Batch Distribute',
+            contract: contractAddr,
+            token: symbol,
+            recipients: recipients.length,
+            txHash: result.transactionHash,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (e) {
+        console.log(chalk.red(`\n✗ Batch execution failed: ${e.message}`));
+    }
+
+    pause();
+}
+
 async function importWallet() {
     const net = getCurrentNetwork();
     console.log(chalk.cyan('\n📥 Import wallet from mnemonic\n'));
@@ -1761,34 +1882,35 @@ async function mainMenuLoop() {
             '9.  ⚒️  Mint Tokens',
             '10. 🔥 Burn Tokens',
             '11. 🔥 Burn From (Allowance)',
+            '12. 📦 PRC-20 Batch Distribution',
             '',
             chalk.cyan.bold('╔═══ ALLOWANCE MANAGEMENT ═══╗'),
-            '12. ➕ Increase Allowance',
-            '13. ➖ Decrease Allowance',
-            '14. 🔍 Check Allowance',
-            '15. 📤 Transfer From (Allowance)',
+            '13. ➕ Increase Allowance',
+            '14. ➖ Decrease Allowance',
+            '15. 🔍 Check Allowance',
+            '16. 📤 Transfer From (Allowance)',
             '',
             chalk.cyan.bold('╔═══ CONTRACT MANAGEMENT ═══╗'),
-            '16. 📤 Upload Contract',
-            '17. 🎯 Instantiate Contract',
-            '18. ⚡ Execute Contract',
-            '19. 🔍 Query Contract',
+            '17. 📤 Upload Contract',
+            '18. 🎯 Instantiate Contract',
+            '19. ⚡ Execute Contract',
+            '20. 🔍 Query Contract',
             '',
             chalk.cyan.bold('╔═══ EXECUTE LIST ═══╗'),
-            '20. 💾 Save Execute Command',
-            '21. 📋 List & Run Saved Commands',
-            '22. 🗑️  Delete Saved Command',
+            '21. 💾 Save Execute Command',
+            '22. 📋 List & Run Saved Commands',
+            '23. 🗑️  Delete Saved Command',
             '',
             chalk.cyan.bold(`╔═══ STAKING (by ${CONFIG.DEV_CONTRACT_AUTHOR}) ═══╗`),
-            '23. 💎 Stake Tokens',
-            '24. 🔓 Unstake Tokens',
-            '25. 💰 Claim Rewards',
-            '26. 📊 View Staking Info',
+            '24. 💎 Stake Tokens',
+            '25. 🔓 Unstake Tokens',
+            '26. 💰 Claim Rewards',
+            '27. 📊 View Staking Info',
             '',
             chalk.cyan.bold('╔═══ SYSTEM ═══╗'),
-            '27. 👨‍💻 Developer Info',
-            '28. 💾 Export Wallet',
-            '29. ⚙️  Settings',
+            '28. 👨‍💻 Developer Info',
+            '29. 💾 Export Wallet',
+            '30. ⚙️  Settings',
             '',
             netColor(`» Current Network: ${net.name.toUpperCase()} (${CONFIG.chainId || 'Loading...'})`),
             '',
@@ -1811,24 +1933,25 @@ async function mainMenuLoop() {
                 case '9': await mintPRC20(); break;
                 case '10': await burnPRC20(); break;
                 case '11': await burnFromPRC20(); break;
-                case '12': await increaseAllowance(); break;
-                case '13': await decreaseAllowance(); break;
-                case '14': await checkAllowance(); break;
-                case '15': await transferFromPRC20(); break;
-                case '16': await uploadContract(); break;
-                case '17': await instantiateContract(); break;
-                case '18': await executeContract(); break;
-                case '19': await queryContract(); break;
-                case '20': await saveExecuteCommand(); break;
-                case '21': await listExecuteCommands(); break;
-                case '22': await deleteExecuteCommand(); break;
-                case '23': await stakeTokens(); break;
-                case '24': await unstakeTokens(); break;
-                case '25': await claimStakingRewards(); break;
-                case '26': await viewStakingInfo(); break;
-                case '27': showDevInfo(); break;
-                case '28': exportWallet(); break;
-                case '29': await settings(); break;
+                case '12': await distributePRC20Batch(); break;
+                case '13': await increaseAllowance(); break;
+                case '14': await decreaseAllowance(); break;
+                case '15': await checkAllowance(); break;
+                case '16': await transferFromPRC20(); break;
+                case '17': await uploadContract(); break;
+                case '18': await instantiateContract(); break;
+                case '19': await executeContract(); break;
+                case '20': await queryContract(); break;
+                case '21': await saveExecuteCommand(); break;
+                case '22': await listExecuteCommands(); break;
+                case '23': await deleteExecuteCommand(); break;
+                case '24': await stakeTokens(); break;
+                case '25': await unstakeTokens(); break;
+                case '26': await claimStakingRewards(); break;
+                case '27': await viewStakingInfo(); break;
+                case '28': showDevInfo(); break;
+                case '29': exportWallet(); break;
+                case '30': await settings(); break;
                 case '0': 
                     console.log(chalk.green('\n👋 Goodbye!\n'));
                     process.exit(0);
