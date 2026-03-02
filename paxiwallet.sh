@@ -388,6 +388,19 @@ function clearScreen() {
     process.stdout.write('\x1Bc');
 }
 
+function inputInteger(promptStr) {
+    console.log(chalk.gray('ℹ Masukkan angka bulat tanpa desimal.'));
+    console.log(chalk.gray('  Sistem otomatis mengonversi ke 6 desimal saat diproses (contoh: 1 = 1000000).'));
+
+    while (true) {
+        const input = readline.question(promptStr);
+        if (/^\d+$/.test(input)) {
+            return input;
+        }
+        console.log(chalk.red('✗ Input tidak valid! Hanya menerima angka (0-9) tanpa titik atau koma.'));
+    }
+}
+
 function loadConfig() {
     if (fs.existsSync(CONFIG_FILE)) {
         try {
@@ -664,7 +677,7 @@ async function sendPaxi() {
     
     console.log(chalk.cyan('\n📤 Send PAXI\n'));
     const recipient = readline.question(chalk.white('Recipient address: '));
-    const amount = readline.question(chalk.white('Amount (PAXI): '));
+    const amountStr = inputInteger(chalk.white('Amount (PAXI): '));
     const memo = readline.question(chalk.white('Memo (optional): '));
     
     console.log(chalk.yellow('\n⏳ Sending transaction...\n'));
@@ -672,7 +685,7 @@ async function sendPaxi() {
     try {
         const { client } = await getSigningStargateClient();
         const net = getCurrentNetwork();
-        const amountInMicro = Math.floor(parseFloat(amount) * 1e6).toString();
+        const amountInMicro = (BigInt(amountStr) * 1000000n).toString();
         
         const result = await client.sendTokens(
             wallet.address,
@@ -936,7 +949,7 @@ async function createPRC20() {
     const name = readline.question(chalk.white('Token Name: '));
     const symbol = readline.question(chalk.white('Token Symbol: '));
     const decimals = parseInt(readline.question(chalk.white('Decimals (default 6): ')) || '6');
-    const initialSupply = readline.question(chalk.white('Initial Supply: '));
+    const initialSupplyStr = inputInteger(chalk.white('Initial Supply: '));
     const label = readline.question(chalk.white('Label: ')) || symbol;
     
     console.log(chalk.yellow('\n📢 Marketing Info (optional, press Enter to skip):\n'));
@@ -952,7 +965,7 @@ async function createPRC20() {
         initial_balances: [
             {
                 address: wallet.address,
-                amount: initialSupply
+                amount: (BigInt(initialSupplyStr) * 1000000n).toString()
             }
         ],
         mint: {
@@ -998,7 +1011,7 @@ async function createPRC20() {
         console.log(chalk.white(`  Name: ${name}`));
         console.log(chalk.white(`  Symbol: ${symbol}`));
         console.log(chalk.white(`  Decimals: ${decimals}`));
-        console.log(chalk.white(`  Supply: ${initialSupply}`));
+    console.log(chalk.white(`  Supply: ${initialSupplyStr}`));
         console.log(chalk.green(`  Contract: ${contractAddress}`));
         console.log(chalk.gray(`  TX Hash: ${result.transactionHash}`));
         console.log(chalk.gray(`  Height: ${result.height}`));
@@ -1043,12 +1056,12 @@ async function transferPRC20() {
     console.log(chalk.cyan('\n📤 Transfer PRC-20\n'));
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const recipient = readline.question(chalk.white('Recipient address: '));
-    const amount = readline.question(chalk.white('Amount: '));
+    const amountStr = inputInteger(chalk.white('Amount: '));
     
     const executeMsg = {
         transfer: {
             recipient: recipient,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1137,12 +1150,12 @@ async function mintPRC20() {
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const recipient = readline.question(chalk.white('Recipient address (empty = your address): ')) || wallet.address;
-    const amount = readline.question(chalk.white('Amount to mint: '));
+    const amountStr = inputInteger(chalk.white('Amount to mint: '));
     
     const executeMsg = {
         mint: {
             recipient: recipient,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1192,11 +1205,11 @@ async function burnPRC20() {
     console.log(chalk.gray('This will burn tokens from your balance\n'));
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
-    const amount = readline.question(chalk.white('Amount to burn: '));
+    const amountStr = inputInteger(chalk.white('Amount to burn: '));
     
     const executeMsg = {
         burn: {
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1246,12 +1259,12 @@ async function increaseAllowance() {
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const spender = readline.question(chalk.white('Spender address: '));
-    const amount = readline.question(chalk.white('Amount: '));
+    const amountStr = inputInteger(chalk.white('Amount: '));
     
     const executeMsg = {
         increase_allowance: {
             spender: spender,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1302,12 +1315,12 @@ async function decreaseAllowance() {
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const spender = readline.question(chalk.white('Spender address: '));
-    const amount = readline.question(chalk.white('Amount to decrease: '));
+    const amountStr = inputInteger(chalk.white('Amount to decrease: '));
     
     const executeMsg = {
         decrease_allowance: {
             spender: spender,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1395,13 +1408,13 @@ async function transferFromPRC20() {
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const owner = readline.question(chalk.white('Owner address: '));
     const recipient = readline.question(chalk.white('Recipient address: '));
-    const amount = readline.question(chalk.white('Amount: '));
+    const amountStr = inputInteger(chalk.white('Amount: '));
     
     const executeMsg = {
         transfer_from: {
             owner: owner,
             recipient: recipient,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
@@ -1452,12 +1465,12 @@ async function burnFromPRC20() {
     
     const contractAddr = readline.question(chalk.white('Contract address: '));
     const owner = readline.question(chalk.white('Owner address: '));
-    const amount = readline.question(chalk.white('Amount to burn: '));
+    const amountStr = inputInteger(chalk.white('Amount to burn: '));
     
     const executeMsg = {
         burn_from: {
             owner: owner,
-            amount: amount
+            amount: (BigInt(amountStr) * 1000000n).toString()
         }
     };
     
